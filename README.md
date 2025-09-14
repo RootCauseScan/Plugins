@@ -1,4 +1,4 @@
-# RootCause.sh Plugin
+# RootCause Plugins
 
 <div align="center">
   <img src="https://raw.githubusercontent.com/RootCauseScan/Brand/refs/heads/main/dist/mole_tools_white/icon-512x512.png" alt="RootCause.sh Logo" width="128" height="128">
