@@ -55,7 +55,6 @@ def handle_init(params):
     """Handle plugin initialization."""
     opts.update(params.get("options") or {})
     opts["workspace_root"] = params.get("workspace_root", "")
-    opts["cwd"] = params.get("cwd", "")
     return {"ok": True, "capabilities": ["report"], "plugin_version": "1.0.0"}
 
 
@@ -125,7 +124,7 @@ def create_pdf_report(findings: List[Dict], metrics: Dict, output_path: str) -> 
     
     # Title page with logo
     # Add logo if available
-    logo_path = os.path.join(os.path.dirname(__file__), 'assets/logo.png')
+    logo_path = os.path.join(os.path.dirname(__file__), 'logo.png')
     if os.path.exists(logo_path):
         logo = Image(logo_path, width=120, height=120)
         logo.hAlign = 'CENTER'
@@ -355,6 +354,6 @@ try:
             send(mid, {"ok": True})
             break
         else:
-            send(mid, None, {"code": 1002, "message": "unknown method", "data": {"method": method}})
+            send(mid, None, {"code": -32601, "message": "Method not found"})
 except (BrokenPipeError, KeyboardInterrupt, OSError):
     sys.exit(0)

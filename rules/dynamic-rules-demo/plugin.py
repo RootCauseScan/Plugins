@@ -163,7 +163,7 @@ for line in sys.stdin:
 
         send(mid, {"ok": True, "capabilities": ["rules", "discover"], "plugin_version": "1.1.0"})
     elif method == "plugin.ping":
-        send(mid, {})
+        send(mid, {"pong": True})
     elif method == "rules.list":
         send(mid, {"ids": list(RULES.keys())})
     elif method == "rules.get":

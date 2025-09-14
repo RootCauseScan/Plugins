@@ -150,7 +150,7 @@ def main() -> None:
             send(mid, {"ok": True})
             break
         else:
-            send(mid, None, {"code": 1002, "message": "unknown method"})
+            send(mid, None, {"code": -32601, "message": "Method not found"})
 
 
 if __name__ == "__main__":

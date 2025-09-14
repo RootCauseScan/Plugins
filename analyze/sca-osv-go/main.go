@@ -433,7 +433,7 @@ func main() {
 		case "file.analyze":
 			var params fileAnalyzeParams
 			if err := json.Unmarshal(req.Params, &params); err != nil {
-				send(req.ID, nil, &errorObj{Code: 1001, Message: "invalid params"})
+				send(req.ID, nil, &errorObj{Code: -32602, Message: "Invalid params"})
 				continue
 			}
 
@@ -497,12 +497,12 @@ func main() {
 			}
 			send(req.ID, findings, nil)
 		case "plugin.ping":
-			send(req.ID, "pong", nil)
+			send(req.ID, map[string]bool{"pong": true}, nil)
 		case "plugin.shutdown":
 			send(req.ID, map[string]bool{"ok": true}, nil)
 			return
 		default:
-			send(req.ID, nil, &errorObj{Code: 1002, Message: "unknown method", Data: map[string]string{"method": req.Method}})
+			send(req.ID, nil, &errorObj{Code: -32601, Message: "Method not found"})
 		}
 	}
 }
