@@ -96,7 +96,7 @@ try:
             send(mid, {"ok": True})
             break
         else:
-            send(mid, None, {"code": 1002, "message": "unknown method", "data": {"method": method}})
+            send(mid, None, {"code": -32601, "message": "Method not found"})
 except (BrokenPipeError, KeyboardInterrupt, OSError):
     # Parent process ended or was interrupted; exit quietly
     sys.exit(0)
