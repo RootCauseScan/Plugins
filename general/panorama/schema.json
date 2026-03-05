@@ -9,9 +9,9 @@
     },
     "output_formats": {
       "type": "array",
-      "items": { "type": "string", "enum": ["json", "csv", "html", "pdf"] },
-      "default": ["pdf"],
-      "description": "Report formats to generate: json (SBOM + vulns), csv, html, pdf"
+      "items": { "type": "string", "enum": ["json", "csv", "html", "pdf", "xlsx"] },
+      "default": ["json", "csv", "html", "pdf", "xlsx"],
+      "description": "Report formats to generate: json, csv, html, pdf, xlsx (Excel with FRONTPAGE, SAST, SCA, LICENSES sheets)"
     },
     "include_sbom": {
       "type": "boolean",

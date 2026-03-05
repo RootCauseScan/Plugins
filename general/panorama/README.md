@@ -7,7 +7,7 @@ Unified view plugin: **code (SAST)**, **dependencies and vulnerabilities (OSV)**
 **Before using the plugin** run the installation script once (it creates the venv with reportlab and the wrapper):
 
 ```bash
-cd Plugins/analyze/panorama
+cd Plugins/general/panorama
 chmod +x install.sh
 ./install.sh
 ```
@@ -29,7 +29,7 @@ Passed via CLI as `--plugin-opt panorama.<key>=<value>` or from config file. All
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `output_dir` | string | `reports` | Directory under workspace for report output. |
-| `output_formats` | list | `["pdf"]` | Formats to generate: `json`, `csv`, `html`, `pdf`. |
+| `output_formats` | list | all | Formats to generate: `json`, `csv`, `html`, `pdf`, `xlsx` (default: all). |
 | `include_sbom` | bool | true | Include SBOM in reports. |
 | `include_vulns` | bool | true | Include vulnerabilities in reports. |
 | `min_severity` | string | `INFO` | Minimum severity: INFO, LOW, MEDIUM, HIGH, CRITICAL. |
@@ -42,20 +42,20 @@ Passed via CLI as `--plugin-opt panorama.<key>=<value>` or from config file. All
 ### Usage examples
 
 ```bash
-# Default generates PDF (after running ./install.sh in the plugin folder)
-rootcause scan . --plugin ./Plugins/analyze/panorama
+# Default: all formats (json, csv, html, pdf, xlsx). Run ./install.sh in the plugin folder first.
+rootcause scan . --plugin ./Plugins/general/panorama
 
-# Multiple formats
-rootcause scan . --plugin ./Plugins/analyze/panorama \
-  --plugin-opt panorama.output_formats=json,csv,html,pdf
+# Only PDF and Excel
+rootcause scan . --plugin ./Plugins/general/panorama \
+  --plugin-opt panorama.output_formats=pdf,xlsx
 
 # npm only, output under reports/deps
-rootcause scan . --plugin ./Plugins/analyze/panorama \
+rootcause scan . --plugin ./Plugins/general/panorama \
   --plugin-opt panorama.ecosystems=npm \
   --plugin-opt panorama.output_dir=reports/deps
 
 # Minimum severity HIGH and custom title
-rootcause scan . --plugin ./Plugins/analyze/panorama \
+rootcause scan . --plugin ./Plugins/general/panorama \
   --plugin-opt panorama.min_severity=HIGH \
   --plugin-opt panorama.report_title="My Security Report"
 ```
@@ -66,11 +66,12 @@ rootcause scan . --plugin ./Plugins/analyze/panorama \
 - **csv**: `sbom.csv` and `deps-vulns.csv` (configurable separator).
 - **html**: `deps-report.html` (SBOM and vulnerabilities tables).
 - **pdf**: `deps-report.pdf` (requires `./install.sh`). Order: introduction, **1. Code vulnerabilities** (SAST), **2. Vulnerabilities in dependencies** (OSV, with Description column), **3. Dependencies and licenses** (SBOM). Numbered pages; logo on cover (same as pdf_report). File names kept for compatibility.
+- **xlsx**: `panorama-report.xlsx` (requires openpyxl, installed via `./install.sh`). Four sheets: **FRONTPAGE** (title, date, workspace, summary counts, SAST/SCA severity breakdown), **SAST** (Rule ID, Severity, File, Line, Column, Message, Excerpt, Remediation, Context, Finding ID), **SCA** (Vuln ID, Package, Version, Ecosystem, File, Line, Severity, Description, Fixed In, References, Published, Modified), **LICENSES** (Component Name, Version, Ecosystem, File, Line, License, PURL, Type, Notes).
 
 ## Requirements
 
 - Python 3.10+
-- **Installation required**: run `./install.sh` in the plugin folder. It creates a venv with reportlab; `plugin.toml` uses `plugin_wrapper.sh` to start with that venv so PDF generation does not fail for missing libraries.
+- **Installation required**: run `./install.sh` in the plugin folder. It creates a venv with reportlab and openpyxl; `plugin.toml` uses `plugin_wrapper.sh` to start with that venv so PDF and Excel generation do not fail for missing libraries.
 
 ## Supported manifests
 

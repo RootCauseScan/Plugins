@@ -8,7 +8,7 @@ from typing import Any
 def default_options() -> dict[str, Any]:
     return {
         "output_dir": "reports",
-        "output_formats": ["pdf"],
+        "output_formats": ["json", "csv", "html", "pdf", "xlsx"],
         "include_sbom": True,
         "include_vulns": True,
         "min_severity": "INFO",

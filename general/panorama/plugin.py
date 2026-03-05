@@ -21,6 +21,13 @@ except ImportError:
     write_pdf = None
     _HAS_PDF = False
 
+try:
+    from report import write_excel
+    _HAS_EXCEL = write_excel is not None
+except ImportError:
+    write_excel = None
+    _HAS_EXCEL = False
+
 _state: dict[str, Any] = {}
 
 
@@ -146,6 +153,13 @@ def main() -> None:
                             output_files.append({"path": os.path.relpath(path, root).replace(os.sep, "/"), "type": "application/pdf", "size": size})
                     else:
                         log("warn", "PDF requested but reportlab not installed; run ./install.sh")
+                elif fmt == "xlsx":
+                    if _HAS_EXCEL and write_excel:
+                        excel_opts = {**opts, "workspace_root": root}
+                        for path, size in write_excel(report_dir, sbom_f, vulns_f, excel_opts, findings=findings_param):
+                            output_files.append({"path": os.path.relpath(path, root).replace(os.sep, "/"), "type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "size": size})
+                    else:
+                        log("warn", "Excel requested but openpyxl not installed; run pip install openpyxl or ./install.sh")
             log("info", f"Wrote {len(output_files)} report file(s) (formats: {formats})")
             send(mid, {
                 "output_files": output_files,

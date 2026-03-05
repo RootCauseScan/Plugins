@@ -1,4 +1,4 @@
-"""Report phase: JSON, CSV, HTML, PDF output."""
+"""Report phase: JSON, CSV, HTML, PDF, Excel output."""
 from . import json as _json
 from . import csv as _csv
 from . import html as _html
@@ -17,3 +17,12 @@ try:
 except ImportError:
     write_pdf = None
     HAS_PDF = False
+
+try:
+    from . import excel as _excel
+    write_excel = _excel.write_excel
+    __all__ = list(__all__) + ["write_excel"]
+    HAS_EXCEL = True
+except ImportError:
+    write_excel = None
+    HAS_EXCEL = False
