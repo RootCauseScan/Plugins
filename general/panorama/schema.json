@@ -1,0 +1,59 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "output_dir": {
+      "type": "string",
+      "default": "reports",
+      "description": "Directory under workspace_root for report files"
+    },
+    "output_formats": {
+      "type": "array",
+      "items": { "type": "string", "enum": ["json", "csv", "html", "pdf"] },
+      "default": ["pdf"],
+      "description": "Report formats to generate: json (SBOM + vulns), csv, html, pdf"
+    },
+    "include_sbom": {
+      "type": "boolean",
+      "default": true,
+      "description": "Include SBOM in JSON/CSV reports"
+    },
+    "include_vulns": {
+      "type": "boolean",
+      "default": true,
+      "description": "Include vulnerabilities in all report formats"
+    },
+    "min_severity": {
+      "type": "string",
+      "enum": ["INFO", "LOW", "MEDIUM", "HIGH", "CRITICAL"],
+      "default": "INFO",
+      "description": "Minimum severity to include in reports"
+    },
+    "ecosystems": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Only include these ecosystems (e.g. npm, PyPI). Empty = all"
+    },
+    "exclude_ecosystems": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Exclude these ecosystems from reports"
+    },
+    "denied_licenses": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "License identifiers to flag as policy violations"
+    },
+    "report_title": {
+      "type": "string",
+      "default": "RootCause Panorama Report",
+      "description": "Title for HTML/PDF reports"
+    },
+    "csv_separator": {
+      "type": "string",
+      "default": ",",
+      "description": "CSV field separator"
+    }
+  },
+  "additionalProperties": false
+}

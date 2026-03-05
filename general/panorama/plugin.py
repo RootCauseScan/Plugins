@@ -1,0 +1,169 @@
+#!/usr/bin/env python3
+"""All-in-One dependency plugin. Single entry point: JSON-RPC loop and dispatch to discover, analyze, report."""
+from __future__ import annotations
+
+import json
+import os
+import sys
+from typing import Any
+
+import discover
+import report
+from analyze import analyze_files
+from analyze.filters import filter_sbom, filter_vulns
+from analyze.osv import enrich_vulns_descriptions
+from options import default_options, parse_opt_value
+
+try:
+    from report import write_pdf
+    _HAS_PDF = write_pdf is not None
+except ImportError:
+    write_pdf = None
+    _HAS_PDF = False
+
+_state: dict[str, Any] = {}
+
+
+def send(mid: Any, result: Any = None, error: dict[str, Any] | None = None) -> None:
+    msg = {"jsonrpc": "2.0", "id": mid}
+    if error is None:
+        msg["result"] = result
+    else:
+        msg["error"] = error
+    sys.stdout.write(json.dumps(msg) + "\n")
+    sys.stdout.flush()
+
+
+def log(level: str, message: str) -> None:
+    sys.stdout.write(json.dumps({
+        "jsonrpc": "2.0", "method": "plugin.log",
+        "params": {"level": level, "message": message},
+    }) + "\n")
+    sys.stdout.flush()
+
+
+def _ensure_state() -> None:
+    if not _state:
+        _state["workspace_root"] = "."
+        _state["sbom"] = []
+        _state["licenses"] = []
+        _state["vulns"] = []
+        _state["denied_licenses"] = []
+        _state["finding_id"] = 0
+        _state["options"] = default_options()
+
+
+def main() -> None:
+    for line in sys.stdin:
+        try:
+            msg = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        mid = msg.get("id")
+        method = msg.get("method")
+        params = msg.get("params") or {}
+
+        if method == "plugin.init":
+            _ensure_state()
+            _state["workspace_root"] = params.get("workspace_root", ".")
+            raw = params.get("options") or {}
+            opts = default_options()
+            for key in opts:
+                if key in raw:
+                    opts[key] = parse_opt_value(key, raw[key])
+            _state["options"] = opts
+            _state["denied_licenses"] = opts.get("denied_licenses") or []
+            send(mid, {
+                "ok": True,
+                "capabilities": ["discover", "analyze", "report"],
+                "plugin_version": "0.2.0",
+            })
+
+        elif method == "plugin.ping":
+            send(mid, {"pong": True})
+
+        elif method == "repo.discover":
+            _ensure_state()
+            root = _state["workspace_root"]
+            base = params.get("path", ".")
+            max_depth = params.get("max_depth")
+            files = discover.discover_manifests(root, base, max_depth)
+            log("info", f"Discovered {len(files)} manifest/lock files to add to scan")
+            send(mid, {
+                "files": files,
+                "external": [],
+                "metrics": {"files_found": len(files), "scan_time_ms": 0},
+            })
+
+        elif method == "file.analyze":
+            _ensure_state()
+            files = params.get("files") or []
+            manifest_files = [f for f in files if discover.is_manifest(f.get("path", ""))]
+            all_findings = analyze_files(manifest_files, _state)
+            send(mid, {
+                "findings": all_findings,
+                "metrics": {
+                    "files_analyzed": len(manifest_files),
+                    "findings": len(all_findings),
+                    "sbom_entries": len(_state["sbom"]),
+                },
+            })
+
+        elif method == "scan.report":
+            _ensure_state()
+            root = _state["workspace_root"]
+            findings_param = params.get("findings") or []
+            opts = _state.get("options") or default_options()
+            output_dir = opts.get("output_dir") or "reports"
+            report_dir = os.path.join(root, output_dir)
+            os.makedirs(report_dir, exist_ok=True)
+            formats = opts.get("output_formats") or ["json"]
+            if isinstance(formats, str):
+                formats = [formats]
+            ecosystems = opts.get("ecosystems") or []
+            exclude_eco = opts.get("exclude_ecosystems") or []
+            min_sev = opts.get("min_severity") or "INFO"
+            sbom_f = filter_sbom(_state["sbom"], ecosystems, exclude_eco)
+            vulns_f = filter_vulns(_state["vulns"], min_sev, ecosystems, exclude_eco)
+            if "pdf" in formats and _HAS_PDF and write_pdf:
+                vulns_f = enrich_vulns_descriptions(vulns_f)
+            output_files: list[dict[str, Any]] = []
+            for fmt in formats:
+                fmt = str(fmt).lower().strip()
+                if fmt == "json":
+                    for path, size in report.write_json(report_dir, sbom_f, vulns_f, opts):
+                        output_files.append({"path": os.path.relpath(path, root).replace(os.sep, "/"), "type": "application/json", "size": size})
+                elif fmt == "csv":
+                    for path, size in report.write_csv(report_dir, sbom_f, vulns_f, opts):
+                        output_files.append({"path": os.path.relpath(path, root).replace(os.sep, "/"), "type": "text/csv", "size": size})
+                elif fmt == "html":
+                    for path, size in report.write_html(report_dir, sbom_f, vulns_f, opts):
+                        output_files.append({"path": os.path.relpath(path, root).replace(os.sep, "/"), "type": "text/html", "size": size})
+                elif fmt == "pdf":
+                    if _HAS_PDF and write_pdf:
+                        pdf_opts = {**opts, "workspace_root": root}
+                        for path, size in write_pdf(report_dir, sbom_f, vulns_f, pdf_opts, findings=findings_param):
+                            output_files.append({"path": os.path.relpath(path, root).replace(os.sep, "/"), "type": "application/pdf", "size": size})
+                    else:
+                        log("warn", "PDF requested but reportlab not installed; run ./install.sh")
+            log("info", f"Wrote {len(output_files)} report file(s) (formats: {formats})")
+            send(mid, {
+                "output_files": output_files,
+                "summary": {
+                    "sbom_components": len(sbom_f),
+                    "vulnerabilities": len(vulns_f),
+                    "total_findings": len(findings_param),
+                },
+                "generation_time_ms": 0,
+            })
+
+        elif method == "plugin.shutdown":
+            send(mid, {"ok": True})
+            break
+
+        else:
+            send(mid, None, {"code": -32601, "message": f"Method not found: {method}"})
+
+
+if __name__ == "__main__":
+    main()
