@@ -124,7 +124,7 @@ def create_pdf_report(findings: List[Dict], metrics: Dict, output_path: str) -> 
     
     # Title page with logo
     # Add logo if available
-    logo_path = os.path.join(os.path.dirname(__file__), 'logo.png')
+    logo_path = os.path.join(os.path.dirname(__file__), 'assets/logo.png')
     if os.path.exists(logo_path):
         logo = Image(logo_path, width=120, height=120)
         logo.hAlign = 'CENTER'
