@@ -107,18 +107,18 @@ type osvResponse struct {
 	} `json:"vulns"`
 }
 
-// findingOut matches the Rust engine Finding schema (subset used).
+// findingOut matches the Rust engine Finding schema (snake_case for JSON-RPC).
 type findingOut struct {
-	Id         string  `json:"id"`
-	RuleId     string  `json:"rule_id"`
-	Severity   string  `json:"severity"`
-	File       string  `json:"file"`
-	Line       int     `json:"line"`
-	Column     int     `json:"column"`
-	Excerpt    string  `json:"excerpt"`
-	Message    string  `json:"message"`
+	Id          string  `json:"id"`
+	RuleId      string  `json:"rule_id"`
+	Severity    string  `json:"severity"`
+	File        string  `json:"file"`
+	Line        int     `json:"line"`
+	Column      int     `json:"column"`
+	Excerpt     string  `json:"excerpt"`
+	Message     string  `json:"message"`
 	Remediation *string `json:"remediation,omitempty"`
-	Fix        *string `json:"fix,omitempty"`
+	Fix         *string `json:"fix,omitempty"`
 }
 
 func send(id interface{}, result interface{}, err *errorObj) {
@@ -130,6 +130,32 @@ func send(id interface{}, result interface{}, err *errorObj) {
 	}
 	b, _ := json.Marshal(resp)
 	fmt.Println(string(b))
+}
+
+// pluginLog sends a log message to the host (SAST) so it appears in the scan output.
+func pluginLog(level, message string) {
+	msg := map[string]interface{}{
+		"jsonrpc": "2.0",
+		"method":  "plugin.log",
+		"params":  map[string]string{"level": level, "message": message},
+	}
+	b, _ := json.Marshal(msg)
+	fmt.Println(string(b))
+}
+
+// manifestBasename returns the manifest file name for matching. When the host
+// uses virtual paths (reads_fs=false), path is like /virtual/package.json-<12char>,
+// so we strip the -<hash> suffix to get "package.json".
+func manifestBasename(path string) string {
+	base := filepath.Base(path)
+	if !strings.HasPrefix(path, "/virtual/") {
+		return base
+	}
+	// Virtual path: /virtual/<name>-<12-char-hash>
+	if i := strings.LastIndex(base, "-"); i != -1 && i+13 == len(base) {
+		return base[:i]
+	}
+	return base
 }
 
 // readFile loads data from base64 content or the filesystem.
@@ -425,6 +451,7 @@ func main() {
 		}
 		switch req.Method {
 		case "plugin.init":
+			pluginLog("info", "sca-osv-go: plugin initialized, ready to check dependencies via OSV")
 			send(req.ID, map[string]interface{}{
 				"ok":             true,
 				"capabilities":   []string{"analyze"},
@@ -438,9 +465,10 @@ func main() {
 			}
 
 			var findings []findingOut
+			pluginLog("info", fmt.Sprintf("sca-osv-go: analyzing %d file(s) for dependency vulnerabilities", len(params.Files)))
 			for _, f := range params.Files {
-				// Match by exact basename only, as requested
-				name := filepath.Base(f.Path)
+				// Use manifest basename (strip virtual path suffix when reads_fs=false)
+				name := manifestBasename(f.Path)
 
 				data, err := readFile(f)
 				if err != nil {
@@ -495,7 +523,8 @@ func main() {
 					}
 				}
 			}
-			send(req.ID, findings, nil)
+			pluginLog("info", fmt.Sprintf("sca-osv-go: found %d vulnerability finding(s) in this batch", len(findings)))
+			send(req.ID, map[string]interface{}{"findings": findings}, nil)
 		case "plugin.ping":
 			send(req.ID, map[string]bool{"pong": true}, nil)
 		case "plugin.shutdown":
