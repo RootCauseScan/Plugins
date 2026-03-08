@@ -1,0 +1,43 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "output_dir": {
+      "type": "string",
+      "default": "reports",
+      "description": "Directory under workspace_root for report files"
+    },
+    "output_formats": {
+      "type": "array",
+      "items": { "type": "string", "enum": ["json", "html", "pdf"] },
+      "default": ["json", "html"],
+      "description": "Report formats: json, html, pdf (pdf requires install.sh)"
+    },
+    "scan_images": {
+      "oneOf": [{ "type": "boolean" }, { "type": "string" }],
+      "default": false,
+      "description": "Scan images for CVEs via Trivy (requires trivy in PATH). CLI sends string (e.g. true)."
+    },
+    "trivy_path": {
+      "type": "string",
+      "default": "trivy",
+      "description": "Path to trivy binary for image scanning"
+    },
+    "trivy_timeout_sec": {
+      "type": "integer",
+      "default": 300,
+      "description": "Timeout per image for Trivy scan (seconds). Large images may need 2–5 min."
+    },
+    "report_title": {
+      "type": "string",
+      "default": "RootCause Infra Report",
+      "description": "Title for HTML/PDF reports"
+    },
+    "check_healthcheck": {
+      "oneOf": [{ "type": "boolean" }, { "type": "string" }],
+      "default": true,
+      "description": "Emit finding when Dockerfile has no HEALTHCHECK. CLI sends string (e.g. true)."
+    }
+  },
+  "additionalProperties": false
+}

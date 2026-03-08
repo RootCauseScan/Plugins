@@ -1,0 +1,14 @@
+# Infra: containers and orchestration (Dockerfile, Containerfile, compose, K8s/OpenShift).
+# discover -> analyze -> report; state shared. Optional Trivy for image CVEs.
+name = "infra"
+version = "0.1.0"
+api_version = "1.x"
+entry = "python3 plugin.py"
+capabilities = ["discover", "analyze", "report"]
+reads_fs = true
+needs_content = true
+# Analyze can run several Trivy scans (each up to trivy_timeout_sec); allow 30 min total
+timeout_ms = 1800000
+# Trivy (subprocess) needs several GB for vuln DB (e.g. "Starlark 4GB address space"); 512 MB caused OOM
+mem_mb = 4096
+config_schema = "schema.json"
