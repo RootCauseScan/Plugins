@@ -5,6 +5,19 @@
       "type": "string",
       "default": "report.pdf",
       "description": "Output filename for the PDF report"
+    },
+    "template": {
+      "type": "string",
+      "description": "Path to Markdown template file (default: plugin templates/report.md)"
+    },
+    "template_css": {
+      "type": "string",
+      "description": "Path to CSS file for the template (default: plugin templates/report.css)"
+    },
+    "allow_commands": {
+      "type": "boolean",
+      "default": false,
+      "description": "Allow {cmd:shell command} in template to run commands (e.g. date, hash)"
     }
   }
 }

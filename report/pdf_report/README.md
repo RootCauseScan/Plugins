@@ -4,15 +4,13 @@ This plugin generates professional PDF reports from SAST (Static Application Sec
 
 ## Features
 
-- **Professional Layout**: Clean, modern PDF design with bone-white and graphite color scheme
-- **Executive Summary**: High-level overview with severity breakdown and metrics
-- **Detailed Findings**: Comprehensive listing of all security issues with full context
-- **Enhanced Information**: Includes file paths, line numbers, columns, code excerpts, and remediation steps
-- **Smart Path Display**: Shows relative paths from workspace root for better readability
-- **Severity Analysis**: Visual breakdown of findings by severity level with professional tables
-- **Metadata**: Report generation timestamp and workspace information
-- **Responsive Design**: Proper page breaks and formatting for readability
-- **Improved Error Handling**: Comprehensive logging and error reporting
+- **Editable Markdown template**: Customise the report via `templates/report.md` and `templates/report.css`
+- **Variables and loops**: Use `{variable}`, `{for finding in findings}` ... `{end}`, `{if x}` ... `{endif}`
+- **Optional commands**: Insert output of shell commands with `{cmd:...}` (e.g. date, hashes) when `allow_commands` is enabled
+- **Full Markdown + CSS**: Tables, images, headings, lists; style everything with CSS (WeasyPrint)
+- **Fallback**: If the template engine is unavailable or fails, the built-in ReportLab report is used
+- **Professional Layout**: Clean, modern PDF design; executive summary, severity breakdown, detailed findings
+- **Smart Path Display**: Relative paths from workspace root; code excerpts, remediation, context
 
 ## Installation
 
@@ -66,12 +64,22 @@ The plugin generates:
 
 ## Configuration
 
-The plugin supports the following options in `plugin.toml`:
+Options (e.g. in rootcause config under `[plugins.pdf-report]` or via CLI):
 
-- `timeout_ms`: Maximum execution time (default: 30000ms)
-- `mem_mb`: Memory limit (default: 256MB)
-- `needs_content`: Set to false as the plugin works with findings data
-- `reads_fs`: Set to true to write PDF files to filesystem
+- **output**: Output filename (default: `report.pdf`)
+- **template**: Path to your Markdown template (default: plugin `templates/report.md`)
+- **template_css**: Path to CSS file (default: plugin `templates/report.css`)
+- **allow_commands**: If `true`, allows `{cmd:shell command}` in the template (e.g. `{cmd:python -c "import datetime; print(datetime.date.today())"}`). Use with care.
+
+## Template syntax
+
+- **Variables**: `{report_date}`, `{workspace_root}`, `{total_unique}`, `{total_occurrences}`, `{metrics.ms}`, `{finding.rule_id}`, `{finding.message}`, etc.
+- **Loop**: `{for finding in findings}` ... `{end}` — each finding has: `title`, `rule_id`, `severity`, `file_display`, `occ_count`, `locations_txt`, `message`, `excerpt_md`, `remediation_md`, `context_md`
+- **Conditional**: `{if no_findings}` ... `{endif}`; inside loops you can use `{if finding.remediation_md}` etc. (by value)
+- **Severity table**: `{for row in severity_breakdown}` with `row.severity`, `row.unique`, `row.occurrences`, `row.percent`
+- **Page break**: `<div class="page-break"></div>` in the template (styled in CSS with `page-break-after: always`)
+- **Images**: Standard Markdown `![alt](path)`; paths are relative to the plugin directory (e.g. `assets/logo.png`)
+- **Commands** (only if `allow_commands` is true): `{cmd:python -c "import hashlib; print(hashlib.sha256(b'x').hexdigest())"}` — output is inserted as text
 
 ## Report Structure
 
@@ -99,7 +107,8 @@ The plugin supports the following options in `plugin.toml`:
 
 ## Dependencies
 
-- `reportlab`: Professional PDF generation library
+- `reportlab`: Built-in PDF generation (fallback)
+- `markdown`, `weasyprint`: For template-based PDF (MD + CSS → PDF). If missing, the plugin uses the built-in report.
 - Standard Python libraries: `json`, `sys`, `os`, `base64`, `datetime`
 
 ## Example Output

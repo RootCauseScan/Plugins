@@ -1,0 +1,150 @@
+/* RootCause PDF Report - Default template styles */
+/* Editable: change colors, fonts, spacing to match your brand */
+
+@page {
+  size: A4;
+  margin: 2cm;
+  @bottom-right {
+    font-family: Helvetica, sans-serif;
+    font-size: 8pt;
+    color: #53535A;
+    content: "Page " counter(page) " of " counter(pages);
+  }
+}
+
+body {
+  font-family: Helvetica, sans-serif;
+  font-size: 10pt;
+  color: #151517;
+  line-height: 1.4;
+}
+
+h1 {
+  font-size: 28pt;
+  text-align: center;
+  color: #151517;
+  margin-bottom: 1em;
+}
+
+h2 {
+  font-size: 18pt;
+  color: #53535A;
+  margin-top: 1em;
+  margin-bottom: 0.5em;
+  page-break-after: avoid;
+}
+
+h3 {
+  font-size: 16pt;
+  color: #53535A;
+  margin-top: 1em;
+  margin-bottom: 0.4em;
+  page-break-after: avoid;
+}
+
+.page-break {
+  page-break-after: always;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.5em 0 1em 0;
+  font-size: 9pt;
+  page-break-inside: avoid;
+}
+
+th, td {
+  border: 1px solid #E5E7EB;
+  padding: 6px 8px;
+  text-align: left;
+  vertical-align: top;
+}
+
+thead th {
+  background-color: #FFD700;
+  color: #151517;
+  font-weight: bold;
+}
+
+tbody tr {
+  background-color: #F6F7F9;
+}
+
+tbody tr:nth-child(even) {
+  background-color: #F6F7F9;
+}
+
+/* Code / excerpt blocks */
+pre, code {
+  font-family: "Courier New", monospace;
+  font-size: 8.5pt;
+  background-color: #F6F7F9;
+  padding: 6px;
+  border: 1px solid #E5E7EB;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+pre {
+  margin: 0.4em 0;
+}
+
+/* Cover page: logo, title, subtitle only */
+.cover-page {
+  text-align: center;
+  padding: 4em 0 2em 0;
+  min-height: 70vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: center;
+  box-sizing: border-box;
+}
+
+img.cover-logo {
+  width: 200px;
+  height: 200px;
+  display: block;
+  margin: 0 auto;
+  max-width: 100%;
+}
+
+.cover-page h1 {
+  font-size: 36pt;
+  color: #FFD700;
+  margin-top: 0.6em;
+  margin-bottom: 0.15em;
+  text-align: center;
+}
+
+.cover-page .cover-subtitle {
+  font-size: 1.15em;
+  color: #53535A;
+  font-weight: 600;
+  margin-top: 0;
+  text-align: center;
+}
+
+/* Images in template */
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Lists */
+ul, ol {
+  margin: 0.4em 0;
+  padding-left: 1.5em;
+}
+
+strong {
+  font-weight: bold;
+}
+
+hr {
+  border: none;
+  border-top: 1px solid #E5E7EB;
+  margin: 1em 0;
+}
