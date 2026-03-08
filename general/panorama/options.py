@@ -8,7 +8,7 @@ from typing import Any
 def default_options() -> dict[str, Any]:
     return {
         "output_dir": "reports",
-        "output_formats": ["json", "csv", "html", "pdf", "xlsx"],
+        "output_formats": ["json", "csv", "pdf", "xlsx"],
         "dependencies": True,
         "infra": True,
         "licenses": True,
@@ -19,6 +19,8 @@ def default_options() -> dict[str, Any]:
         "exclude_ecosystems": [],
         "denied_licenses": [],
         "report_title": "RootCause Panorama Report",
+        "pdf_template": "",
+        "pdf_template_css": "",
         "csv_separator": ",",
         # Deps: Syft (SBOM) + Grype (vulns); empty = use plugin-local bin/
         "syft_path": "",

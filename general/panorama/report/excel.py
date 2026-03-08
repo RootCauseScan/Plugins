@@ -65,20 +65,19 @@ def _style_cell(cell, font: Font | None = None, fill: PatternFill | None = None,
 
 def write_excel(
     report_dir: str,
-    sbom: list[dict],
-    vulns: list[dict],
+    report: dict[str, Any],
     opts: dict[str, Any],
-    findings: list[dict] | None = None,
-    images: list[dict] | None = None,
-    findings_infra: list[dict] | None = None,
 ) -> list[tuple[str, int]]:
-    """Write panorama-report.xlsx with sheets FRONTPAGE, SAST, SCA, INFRA, LICENSES. Returns [(path, size), ...]."""
+    """Write panorama-report.xlsx from canonical report. Sheets: FRONTPAGE, SAST, SCA, INFRA, LICENSES. Returns [(path, size), ...]."""
     wb = Workbook()
-    title = opts.get("report_title") or "RootCause Panorama Report"
+    title = opts.get("report_title") or report.get("metadata", {}).get("report_title") or "RootCause Panorama Report"
     report_date = datetime.now().strftime("%Y-%m-%d %H:%M")
-    workspace_root = opts.get("workspace_root") or ""
-    all_findings = findings or []
-    code_findings = [f for f in all_findings if not (f.get("rule_id") or "").startswith("deps.") and not (f.get("rule_id") or "").startswith("infra.")]
+    workspace_root = opts.get("workspace_root") or report.get("metadata", {}).get("workspace_root") or ""
+    code_findings = report.get("sast", {}).get("findings", [])
+    vulns = report.get("dependency_vulnerabilities", {}).get("vulnerabilities", [])
+    sbom = report.get("sbom", {}).get("components", [])
+    images = report.get("infrastructure", {}).get("images", [])
+    findings_infra = report.get("infrastructure", {}).get("findings", [])
 
     thin_border = Border(
         left=Side(style="thin"), right=Side(style="thin"),
@@ -142,7 +141,7 @@ def write_excel(
     ws_front.cell(row=r, column=2).fill = header_fill
     ws_front.cell(row=r, column=2).border = thin_border
     r += 1
-    sast_sev = _severity_sast(all_findings)
+    sast_sev = _severity_sast(code_findings)
     for sev, count in sorted(sast_sev.items()):
         ws_front.cell(row=r, column=1, value=sev).border = thin_border
         ws_front.cell(row=r, column=2, value=count).border = thin_border

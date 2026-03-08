@@ -9,9 +9,9 @@
     },
     "output_formats": {
       "type": "array",
-      "items": { "type": "string", "enum": ["json", "csv", "html", "pdf", "xlsx"] },
-      "default": ["json", "csv", "html", "pdf", "xlsx"],
-      "description": "Report formats to generate: json, csv, html, pdf, xlsx (Excel with FRONTPAGE, SAST, SCA, LICENSES sheets)"
+      "items": { "type": "string", "enum": ["json", "csv", "pdf", "xlsx"] },
+      "default": ["json", "csv", "pdf", "xlsx"],
+      "description": "Report formats to generate: json, csv, pdf, xlsx (Excel with FRONTPAGE, SAST, SCA, LICENSES sheets)"
     },
     "dependencies": {
       "type": "boolean",
@@ -63,6 +63,14 @@
       "type": "string",
       "default": "RootCause Panorama Report",
       "description": "Title for HTML/PDF reports"
+    },
+    "pdf_template": {
+      "type": "string",
+      "description": "Path to Markdown template for PDF (default: plugin templates/panorama-report.md)"
+    },
+    "pdf_template_css": {
+      "type": "string",
+      "description": "Path to CSS for PDF template (default: plugin templates/panorama-report.css)"
     },
     "csv_separator": {
       "type": "string",

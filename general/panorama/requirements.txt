@@ -1,5 +1,7 @@
-# PDF report (professional layout, pie charts, tables). Required for output_formats=pdf.
-reportlab>=4.0.0
+# PDF report (template-based, Markdown + CSS via WeasyPrint). Required for output_formats=pdf.
+markdown>=3.4.0
+weasyprint>=60.0
+pygal>=2.4.0
 # Excel report (FRONTPAGE, SAST, SCA, LICENSES sheets). Required for output_formats=xlsx.
 openpyxl>=3.1.0
 # Infra (Dockerfile, compose, K8s YAML parsing).

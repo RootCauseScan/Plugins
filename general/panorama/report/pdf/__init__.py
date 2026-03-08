@@ -1,4 +1,7 @@
-"""PDF report: professional multi-section report with numbered pages."""
-from .builder import create_pdf, write_pdf
+"""PDF report: template-based (Markdown + CSS -> WeasyPrint)."""
+try:
+    from .template_pdf import write_pdf
+except ImportError:
+    write_pdf = None
 
-__all__ = ["write_pdf", "create_pdf"]
+__all__ = ["write_pdf"]

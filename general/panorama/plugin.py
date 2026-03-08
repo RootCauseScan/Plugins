@@ -144,55 +144,51 @@ def main() -> None:
             root = _state["workspace_root"]
             findings_param = params.get("findings") or []
             opts = _state.get("options") or default_options()
+            pdf_opts = {**opts, "workspace_root": root}
             output_dir = opts.get("output_dir") or "reports"
             report_dir = os.path.join(root, output_dir)
             os.makedirs(report_dir, exist_ok=True)
-            formats = opts.get("output_formats") or ["json"]
+            formats = opts.get("output_formats") or default_options().get("output_formats") or ["json", "csv", "pdf", "xlsx"]
             if isinstance(formats, str):
                 formats = [formats]
-            ecosystems = opts.get("ecosystems") or []
-            exclude_eco = opts.get("exclude_ecosystems") or []
-            min_sev = opts.get("min_severity") or "INFO"
-            sbom_f = filter_sbom(_state["sbom"], ecosystems, exclude_eco)
-            vulns_f = filter_vulns(_state["vulns"], min_sev, ecosystems, exclude_eco)
+            canonical_report = report.build_canonical_report(_state, findings_param, pdf_opts)
             output_files: list[dict[str, Any]] = []
             deps_enabled = opts.get("dependencies") is not False
             infra_enabled = opts.get("infra") is not False
             licenses_enabled = opts.get("licenses") is not False
+            sbom_f = filter_sbom(_state["sbom"], opts.get("ecosystems") or [], opts.get("exclude_ecosystems") or [])
+            vulns_f = filter_vulns(_state["vulns"], opts.get("min_severity") or "INFO", opts.get("ecosystems") or [], opts.get("exclude_ecosystems") or [])
             for fmt in formats:
                 fmt = str(fmt).lower().strip()
                 if fmt == "json":
-                    if deps_enabled:
-                        for path, size in report.write_json(report_dir, sbom_f, vulns_f, opts):
-                            output_files.append({"path": os.path.relpath(path, root).replace(os.sep, "/"), "type": "application/json", "size": size})
+                    for path, size in report.write_canonical_json(report_dir, canonical_report, pdf_opts):
+                        output_files.append({"path": os.path.relpath(path, root).replace(os.sep, "/"), "type": "application/json", "size": size})
                 elif fmt == "csv":
                     if deps_enabled:
-                        for path, size in report.write_csv(report_dir, sbom_f, vulns_f, opts):
+                        for path, size in report.write_csv(report_dir, canonical_report, pdf_opts):
                             output_files.append({"path": os.path.relpath(path, root).replace(os.sep, "/"), "type": "text/csv", "size": size})
-                elif fmt == "html":
-                    if deps_enabled:
-                        for path, size in report.write_html(report_dir, sbom_f, vulns_f, opts):
-                            output_files.append({"path": os.path.relpath(path, root).replace(os.sep, "/"), "type": "text/html", "size": size})
                 elif fmt == "pdf":
                     if _HAS_PDF and write_pdf:
-                        pdf_opts = {**opts, "workspace_root": root}
-                        for path, size in write_pdf(report_dir, sbom_f, vulns_f, pdf_opts, findings=findings_param, images=_state.get("images") or [], findings_infra=_state.get("findings_infra") or []):
+                        pdf_result = write_pdf(report_dir, canonical_report, pdf_opts, _plugin_dir)
+                        for path, size in pdf_result:
                             output_files.append({"path": os.path.relpath(path, root).replace(os.sep, "/"), "type": "application/pdf", "size": size})
+                        if not pdf_result:
+                            log("warn", "PDF not generated: install markdown and weasyprint in the plugin environment (pip install markdown weasyprint)")
                     else:
-                        log("warn", "PDF requested but reportlab not installed; run ./install.sh")
+                        log("warn", "PDF requested but markdown/weasyprint not installed; run pip install markdown weasyprint or ./install.sh")
                 elif fmt == "xlsx":
                     if _HAS_EXCEL and write_excel:
-                        excel_opts = {**opts, "workspace_root": root}
-                        for path, size in write_excel(report_dir, sbom_f, vulns_f, excel_opts, findings=findings_param, images=_state.get("images") or [], findings_infra=_state.get("findings_infra") or []):
+                        for path, size in write_excel(report_dir, canonical_report, pdf_opts):
                             output_files.append({"path": os.path.relpath(path, root).replace(os.sep, "/"), "type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "size": size})
                     else:
                         log("warn", "Excel requested but openpyxl not installed; run pip install openpyxl or ./install.sh")
-            images = _state.get("images") or []
-            findings_infra = _state.get("findings_infra") or []
+            infra_data = canonical_report.get("infrastructure", {})
+            images = infra_data.get("images", [])
+            findings_infra = infra_data.get("findings", [])
             if infra_enabled and (images or findings_infra) and write_infra_json and write_infra_html:
-                for path, size in write_infra_json(report_dir, images, findings_infra, opts):
+                for path, size in write_infra_json(report_dir, canonical_report, pdf_opts):
                     output_files.append({"path": os.path.relpath(path, root).replace(os.sep, "/"), "type": "application/json", "size": size})
-                for path, size in write_infra_html(report_dir, images, findings_infra, opts):
+                for path, size in write_infra_html(report_dir, canonical_report, pdf_opts):
                     output_files.append({"path": os.path.relpath(path, root).replace(os.sep, "/"), "type": "text/html", "size": size})
             log("info", f"Writing {len(output_files)} report file(s) to {output_dir}/ (formats: {', '.join(formats)})")
             summary = {

@@ -1,0 +1,250 @@
+/* Panorama PDF Report - Default template styles */
+/* Editable: change colors, fonts, spacing to match your brand */
+
+@page {
+  size: A4;
+  margin: 2cm;
+  @bottom-right {
+    font-family: Helvetica, sans-serif;
+    font-size: 8pt;
+    color: #53535A;
+    content: "Page " counter(page) " of " counter(pages);
+  }
+}
+
+@page :first {
+  @bottom-right {
+    content: none;
+  }
+}
+
+body {
+  font-family: Helvetica, sans-serif;
+  font-size: 10pt;
+  color: #151517;
+  line-height: 1.4;
+}
+
+h1 {
+  font-size: 28pt;
+  text-align: center;
+  color: #151517;
+  margin-bottom: 1em;
+}
+
+h2 {
+  font-size: 18pt;
+  color: #53535A;
+  margin-top: 1em;
+  margin-bottom: 0.5em;
+  page-break-after: avoid;
+}
+
+h3 {
+  font-size: 16pt;
+  color: #53535A;
+  margin-top: 1em;
+  margin-bottom: 0.4em;
+  page-break-after: avoid;
+}
+
+.page-break {
+  page-break-after: always;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.5em 0 1em 0;
+  font-size: 9pt;
+  page-break-inside: avoid;
+}
+
+th, td {
+  border: 1px solid #E5E7EB;
+  padding: 6px 8px;
+  text-align: left;
+  vertical-align: top;
+}
+
+thead th {
+  background-color: #FFD700;
+  color: #151517;
+  font-weight: bold;
+}
+
+tbody tr {
+  background-color: #F6F7F9;
+}
+
+tbody tr:nth-child(even) {
+  background-color: #F6F7F9;
+}
+
+/* Code / excerpt blocks */
+pre, code {
+  font-family: "Courier New", monospace;
+  font-size: 8.5pt;
+  background-color: #F6F7F9;
+  padding: 6px;
+  border: 1px solid #E5E7EB;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+pre {
+  margin: 0.4em 0;
+}
+
+/* Cover page */
+.cover-page {
+  text-align: center;
+  padding: 4em 0 2em 0;
+  min-height: 70vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: center;
+  box-sizing: border-box;
+}
+
+img.cover-logo {
+  width: 120px;
+  height: 120px;
+  display: block;
+  margin: 0 auto;
+  max-width: 100%;
+}
+
+.cover-page h1 {
+  font-size: 36pt;
+  color: #2F5496;
+  margin-top: 0.6em;
+  margin-bottom: 0.15em;
+  text-align: center;
+}
+
+.cover-page .cover-subtitle {
+  font-size: 1.15em;
+  color: #53535A;
+  font-weight: 600;
+  margin-top: 0;
+  text-align: center;
+}
+
+.cover-page .cover-meta {
+  font-size: 10pt;
+  color: #53535A;
+  margin-top: 1.5em;
+  text-align: left;
+  max-width: 80%;
+}
+
+/* Images in template */
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+ul, ol {
+  margin: 0.4em 0;
+  padding-left: 1.5em;
+}
+
+strong {
+  font-weight: bold;
+}
+
+hr {
+  border: none;
+  border-top: 1px solid #E5E7EB;
+  margin: 1em 0;
+}
+
+/* Severity bar charts */
+.chart {
+  margin: 1em 0 1.5em 0;
+  page-break-inside: avoid;
+}
+
+.chart h4 {
+  font-size: 12pt;
+  color: #53535A;
+  margin: 0 0 0.5em 0;
+  font-weight: bold;
+}
+
+.chart-body {
+  width: 100%;
+}
+
+.chart-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+  font-size: 9pt;
+}
+
+.chart-label {
+  flex: 0 0 90px;
+  font-weight: 600;
+  color: #151517;
+}
+
+.chart-bar-wrap {
+  flex: 1 1 auto;
+  min-width: 60px;
+  height: 18px;
+  background: #E5E7EB;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.chart-bar {
+  height: 100%;
+  min-width: 2px;
+  border-radius: 2px;
+  background: #2F5496;
+}
+
+.chart-bar.sev-critical { background: #dc2626; }
+.chart-bar.sev-high     { background: #ea580c; }
+.chart-bar.sev-medium   { background: #ca8a04; }
+.chart-bar.sev-low      { background: #65a30d; }
+.chart-bar.sev-info     { background: #0ea5e9; }
+.chart-bar.sev-unknown  { background: #6b7280; }
+
+.chart-value {
+  flex: 0 0 32px;
+  text-align: right;
+  font-weight: 600;
+  color: #53535A;
+}
+
+/* Pie charts (pygal SVG) */
+.chart-pie-wrapper {
+  margin: 1em 0 1.5em 0;
+  page-break-inside: avoid;
+  text-align: center;
+}
+
+.chart-pie-wrapper h4 {
+  font-size: 12pt;
+  color: #53535A;
+  margin: 0 0 0.5em 0;
+  font-weight: bold;
+}
+
+.chart-pie {
+  margin: 0.5em auto;
+  page-break-inside: avoid;
+  display: block;
+}
+
+.chart-pie svg {
+  max-width: 100%;
+  height: auto;
+  background-color: white;
+}

@@ -1,25 +1,20 @@
-"""JSON report: panorama-infra.json with images and infra findings only (rule_id starting with prefix)."""
+"""JSON report: panorama-infra.json with images and infra findings. Reads from canonical report."""
 from __future__ import annotations
 
 import json
 import os
 from typing import Any
 
-# Only include findings from infra rules (e.g. infra.image-vulnerability, infra.runs-as-root)
-RULE_PREFIX = "infra."
-
-
-def _infra_findings_only(findings: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    return [f for f in findings if (f.get("rule_id") or "").startswith(RULE_PREFIX)]
-
 
 def write_infra_json(
     report_dir: str,
-    images: list[dict[str, Any]],
-    findings_infra: list[dict[str, Any]],
+    report: dict[str, Any],
     opts: dict[str, Any],
 ) -> list[tuple[str, int]]:
-    findings = _infra_findings_only(findings_infra)
+    """Write panorama-infra.json from report["infrastructure"]. Returns [(path, size)]."""
+    infra = report.get("infrastructure", {})
+    images = infra.get("images", [])
+    findings = infra.get("findings", [])
     data = {
         "report": "infra",
         "images": images,
