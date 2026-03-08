@@ -1,9 +1,10 @@
-# Infra: containers and orchestration (Dockerfile, Containerfile, compose, K8s/OpenShift).
+# Infralyzer: containers and orchestration (Dockerfile, Containerfile, compose, K8s/OpenShift).
 # discover -> analyze -> report; state shared. Optional Trivy for image CVEs.
-name = "infra"
+# Run ./install.sh once so the venv and plugin_wrapper.sh exist.
+name = "infralyzer"
 version = "0.1.0"
 api_version = "1.x"
-entry = "python3 plugin.py"
+entry = "plugin_wrapper.sh"
 capabilities = ["discover", "analyze", "report"]
 reads_fs = true
 needs_content = true
@@ -12,3 +13,9 @@ timeout_ms = 1800000
 # Trivy (subprocess) needs several GB for vuln DB (e.g. "Starlark 4GB address space"); 512 MB caused OOM
 mem_mb = 4096
 config_schema = "schema.json"
+
+[install]
+steps = [
+  "chmod +x install.sh",
+  "./install.sh"
+]

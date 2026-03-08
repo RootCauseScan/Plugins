@@ -15,7 +15,7 @@
     },
     "scan_images": {
       "oneOf": [{ "type": "boolean" }, { "type": "string" }],
-      "default": false,
+      "default": true,
       "description": "Scan images for CVEs via Trivy (requires trivy in PATH). CLI sends string (e.g. true)."
     },
     "trivy_path": {

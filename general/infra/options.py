@@ -9,7 +9,7 @@ def default_options() -> dict[str, Any]:
     return {
         "output_dir": "reports",
         "output_formats": ["json", "html"],
-        "scan_images": False,
+        "scan_images": True,
         "trivy_path": "trivy",
         "trivy_timeout_sec": 300,
         "report_title": "RootCause Infra Report",

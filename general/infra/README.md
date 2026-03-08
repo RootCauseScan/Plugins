@@ -1,4 +1,4 @@
-# Infra Plugin
+# Infralyzer Plugin
 
 Unified plugin for **containers and orchestration**: Dockerfile, Containerfile (Podman), docker-compose, Kubernetes/OpenShift. Detects **misconfigurations** and optionally **image vulnerabilities** via Trivy.
 
@@ -17,17 +17,17 @@ Unified plugin for **containers and orchestration**: Dockerfile, Containerfile (
 rootcause scan . --plugin ./plugins/general/infra
 
 # With image scanning (requires Trivy installed)
-rootcause scan . --plugin ./plugins/general/infra --plugin-opt infra.scan_images=true
+rootcause scan . --plugin ./plugins/general/infra --plugin-opt infralyzer.scan_images=true
 
 # JSON only, custom output directory
 rootcause scan . --plugin ./plugins/general/infra \
-  --plugin-opt infra.output_formats=json \
-  --plugin-opt infra.output_dir=out/infra
+  --plugin-opt infralyzer.output_formats=json \
+  --plugin-opt infralyzer.output_dir=out/infra
 ```
 
 ## Options
 
-Pass with `--plugin-opt infra.<key>=<value>` or via config:
+Pass with `--plugin-opt infralyzer.<key>=<value>` or via config:
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
@@ -52,14 +52,16 @@ Pass with `--plugin-opt infra.<key>=<value>` or via config:
 
 - Python 3.10+
 - PyYAML (see `requirements.txt`)
-- **Image CVE scanning:** set `--plugin-opt infra.scan_images=true` and have [Trivy](https://github.com/aquasecurity/trivy) installed and on PATH. If Trivy is missing, the plugin logs a warning and skips image scanning. Images must be pullable (network and, in many environments, Docker).
+- **Image CVE scanning:** set `--plugin-opt infralyzer.scan_images=true` and have [Trivy](https://github.com/aquasecurity/trivy) installed and on PATH. If Trivy is missing, the plugin logs a warning and skips image scanning. Images must be pullable (network and, in many environments, Docker).
 
 ## Structure
 
 ```
-infra/
+infra/   # plugin name: infralyzer
   plugin.py
   plugin.toml
+  install.sh
+  plugin_wrapper.sh  # created by install.sh
   schema.json
   options.py
   discover/files.py
