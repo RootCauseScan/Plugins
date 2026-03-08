@@ -13,6 +13,21 @@
       "default": ["json", "csv", "html", "pdf", "xlsx"],
       "description": "Report formats to generate: json, csv, html, pdf, xlsx (Excel with FRONTPAGE, SAST, SCA, LICENSES sheets)"
     },
+    "dependencies": {
+      "type": "boolean",
+      "default": true,
+      "description": "Enable dependency analysis (Syft + Grype) and include in reports (vulns, SBOM, section 2, SCA/LICENSES sheets)"
+    },
+    "infra": {
+      "type": "boolean",
+      "default": true,
+      "description": "Enable infra discovery and analysis (Dockerfile, compose, K8s, Trivy) and include in reports (section 3, INFRA sheet, panorama-infra.*)"
+    },
+    "licenses": {
+      "type": "boolean",
+      "default": true,
+      "description": "Enable license extraction and include licenses section/sheets in reports (section 4, LICENSES sheet)"
+    },
     "include_sbom": {
       "type": "boolean",
       "default": true,
@@ -53,6 +68,41 @@
       "type": "string",
       "default": ",",
       "description": "CSV field separator"
+    },
+    "syft_path": {
+      "type": "string",
+      "default": "",
+      "description": "Path to Syft binary (SBOM). Empty = plugin-local bin/syft"
+    },
+    "grype_path": {
+      "type": "string",
+      "default": "",
+      "description": "Path to Grype binary. Empty = plugin-local bin/grype"
+    },
+    "grype_timeout_sec": {
+      "type": "integer",
+      "default": 300,
+      "description": "Timeout for Grype SBOM scan (seconds)"
+    },
+    "scan_images": {
+      "oneOf": [{ "type": "boolean" }, { "type": "string" }],
+      "default": true,
+      "description": "Scan container images for CVEs via Trivy (Dockerfile/compose/K8s). Requires trivy in PATH."
+    },
+    "trivy_path": {
+      "type": "string",
+      "default": "",
+      "description": "Path to Trivy binary. Empty = plugin-local bin/trivy"
+    },
+    "trivy_timeout_sec": {
+      "type": "integer",
+      "default": 60,
+      "description": "Timeout per image for Trivy scan (seconds)"
+    },
+    "check_healthcheck": {
+      "oneOf": [{ "type": "boolean" }, { "type": "string" }],
+      "default": true,
+      "description": "Emit finding when Dockerfile has no HEALTHCHECK"
     }
   },
   "additionalProperties": false

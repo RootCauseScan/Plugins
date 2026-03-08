@@ -1,4 +1,4 @@
-"""HTML report: deps-report.html."""
+"""HTML report: panorama-report.html."""
 from __future__ import annotations
 
 import io
@@ -30,7 +30,7 @@ def write_html(
             buf.write(f"<tr><td>{v.get('vuln_id','')}</td><td>{v.get('name','')}</td><td>{v.get('version','')}</td><td>{v.get('ecosystem','')}</td><td>{v.get('file','')}</td></tr>")
         buf.write("</table>")
     buf.write("</body></html>")
-    path = os.path.join(report_dir, "deps-report.html")
+    path = os.path.join(report_dir, "panorama-report.html")
     content = buf.getvalue()
     with open(path, "w", encoding="utf-8") as fh:
         fh.write(content)

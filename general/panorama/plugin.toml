@@ -2,14 +2,14 @@
 # Single process across discover → analyze → report; state is shared.
 # Run ./install.sh once so the venv and plugin_wrapper.sh exist.
 name = "panorama"
-version = "0.2.0"
+version = "0.4.0"
 api_version = "1.x"
 entry = "plugin_wrapper.sh"
 capabilities = ["discover", "analyze", "report"]
 reads_fs = true
 needs_content = true
 timeout_ms = 60000
-mem_mb = 512
+mem_mb = 4096
 config_schema = "schema.json"
 
 [install]

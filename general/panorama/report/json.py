@@ -1,4 +1,4 @@
-"""JSON report: sbom.json (CycloneDX) and deps-vulns.json."""
+"""JSON report: panorama-sbom.json (CycloneDX) and panorama-vulns.json."""
 from __future__ import annotations
 
 import json
@@ -28,12 +28,12 @@ def write_json(
                 for c in sbom
             ],
         }
-        path = os.path.join(report_dir, "sbom.json")
+        path = os.path.join(report_dir, "panorama-sbom.json")
         with open(path, "w", encoding="utf-8") as fh:
             json.dump(sbom_data, fh, indent=2)
         out.append((path, os.path.getsize(path)))
     if opts.get("include_vulns"):
-        path = os.path.join(report_dir, "deps-vulns.json")
+        path = os.path.join(report_dir, "panorama-vulns.json")
         with open(path, "w", encoding="utf-8") as fh:
             json.dump(vulns, fh, indent=2)
         out.append((path, os.path.getsize(path)))

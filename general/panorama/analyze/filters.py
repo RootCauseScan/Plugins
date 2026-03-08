@@ -38,5 +38,11 @@ def filter_vulns(
     if exclude:
         out = [v for v in out if v.get("ecosystem") not in exclude]
     if min_severity and min_severity != "INFO":
-        out = [v for v in out if severity_at_least(severity_for_vuln(v.get("vuln_id", "")), min_severity)]
+        out = [
+            v for v in out
+            if severity_at_least(
+                v.get("severity") or severity_for_vuln(v.get("vuln_id", "")),
+                min_severity,
+            )
+        ]
     return out

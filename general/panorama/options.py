@@ -9,6 +9,9 @@ def default_options() -> dict[str, Any]:
     return {
         "output_dir": "reports",
         "output_formats": ["json", "csv", "html", "pdf", "xlsx"],
+        "dependencies": True,
+        "infra": True,
+        "licenses": True,
         "include_sbom": True,
         "include_vulns": True,
         "min_severity": "INFO",
@@ -17,6 +20,15 @@ def default_options() -> dict[str, Any]:
         "denied_licenses": [],
         "report_title": "RootCause Panorama Report",
         "csv_separator": ",",
+        # Deps: Syft (SBOM) + Grype (vulns); empty = use plugin-local bin/
+        "syft_path": "",
+        "grype_path": "",
+        "grype_timeout_sec": 300,
+        # Infra (Dockerfile, compose, K8s); empty = plugin-local bin/trivy
+        "scan_images": True,
+        "trivy_path": "",
+        "trivy_timeout_sec": 10,
+        "check_healthcheck": True,
     }
 
 
@@ -33,10 +45,15 @@ def parse_opt_value(key: str, raw: Any) -> Any:
             except json.JSONDecodeError:
                 pass
         return [x.strip() for x in s.split(",") if x.strip()]
-    if key in ("include_sbom", "include_vulns"):
+    if key in ("dependencies", "infra", "licenses", "include_sbom", "include_vulns", "scan_images", "check_healthcheck"):
         if isinstance(raw, bool):
             return raw
         return str(raw).lower() in ("1", "true", "yes", "on")
+    if key in ("trivy_timeout_sec", "grype_timeout_sec"):
+        try:
+            return int(raw)
+        except (TypeError, ValueError):
+            return default_options().get(key, 300)
     if key in ("ecosystems", "exclude_ecosystems", "denied_licenses"):
         if isinstance(raw, list):
             return raw

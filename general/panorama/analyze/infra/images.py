@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import json
+import os
+import signal
 import subprocess
 from typing import Any, Callable
 
@@ -43,42 +45,61 @@ def scan_image_trivy(
     trivy_path: str,
     timeout_sec: int,
     log_fn: Callable[[str, str], None] | None = None,
-) -> list[dict[str, Any]]:
+) -> tuple[list[dict[str, Any]], bool]:
     """
-    Run trivy image --format json --scanners vuln. Returns list of vuln dicts:
-    {vulnerability_id, pkg_name, severity, ...}.
-    Uses --exit-code 0 so Trivy always returns 0 and full JSON is on stdout.
+    Run trivy image --format json --scanners vuln. Returns (vulns, timed_out).
+    Timeout is enforced by this code (supervisor); we kill the process (and its group) after timeout_sec.
     """
+    timeout_sec = max(1, timeout_sec)
+    cmd = [
+        trivy_path,
+        "image",
+        "--format", "json",
+        "--scanners", "vuln",
+        "--quiet",
+        "--exit-code", "0",
+        image_ref,
+    ]
     try:
-        out = subprocess.run(
-            [
-                trivy_path,
-                "image",
-                "--format", "json",
-                "--scanners", "vuln",
-                "--quiet",
-                "--exit-code", "0",
-                image_ref,
-            ],
-            capture_output=True,
+        proc = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
-            timeout=timeout_sec,
+            start_new_session=(os.name != "nt"),
         )
+    except FileNotFoundError:
+        return ([], False)
+    try:
+        stdout, stderr = proc.communicate(timeout=timeout_sec)
+        out = subprocess.CompletedProcess(proc.args, proc.returncode, stdout, stderr)
     except subprocess.TimeoutExpired:
         if log_fn:
-            log_fn("warn", f"[infra] Trivy timed out for {image_ref}")
-        return []
-    except FileNotFoundError:
-        return []
+            log_fn("warn", f"[infra] Trivy reached timeout ({timeout_sec}s) for {image_ref}. Scan skipped.")
+        try:
+            if os.name != "nt":
+                pgid = os.getpgid(proc.pid)
+                os.killpg(pgid, signal.SIGKILL)
+            else:
+                proc.kill()
+        except (ProcessLookupError, OSError):
+            pass
+        proc.wait()
+        return ([], True)
     except Exception as e:
         if log_fn:
             log_fn("warn", f"[infra] Trivy error for {image_ref}: {e}")
-        return []
+        try:
+            proc.kill()
+            proc.wait()
+        except (ProcessLookupError, OSError):
+            pass
+        return ([], False)
     # Trivy may write JSON to stdout (or in some setups to stderr); parse both
     vulns = _parse_trivy_json(out.stdout or "")
     if not vulns and (out.stderr or "").strip():
         vulns = _parse_trivy_json(out.stderr.strip())
-    # When 0 vulns, check if Trivy failed (e.g. OOM when run as subprocess)
+    # When 0 vulns, check if Trivy failed (e.g. OOM)
     if not vulns and log_fn and out.returncode != 0:
         stderr = (out.stderr or "").strip()
         if "failed to reserve page summary memory" in stderr or "fatal error" in stderr:
@@ -91,4 +112,4 @@ def scan_image_trivy(
             log_fn("info", f"[infra] Trivy stderr for {image_ref}: {stderr}")
         elif stderr:
             log_fn("info", f"[infra] Trivy stderr for {image_ref} (first 300 chars): {stderr[:300]}")
-    return vulns
+    return (vulns, False)

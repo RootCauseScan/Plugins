@@ -6,6 +6,7 @@ import os
 import subprocess
 from typing import Any
 
+from ..cyclonedx_grype import resolve_tool_path
 from . import dockerfile as df
 from . import compose as comp
 from . import kubernetes as k8s
@@ -32,7 +33,11 @@ def analyze_files(files: list[dict[str, Any]], state: dict[str, Any]) -> list[di
     all_findings: list[dict[str, Any]] = []
     opts = state.get("options") or {}
     scan_images = opts.get("scan_images") is True
-    trivy_path = opts.get("trivy_path") or "trivy"
+    plugin_dir = state.get("plugin_dir") or "."
+    trivy_path = resolve_tool_path((opts.get("trivy_path") or "").strip(), plugin_dir, "bin/trivy")
+    # If resolved path (e.g. plugin bin/trivy) does not exist, use "trivy" from PATH
+    if not (os.path.isfile(trivy_path) and os.access(trivy_path, os.X_OK)):
+        trivy_path = "trivy"
     trivy_timeout = int(opts.get("trivy_timeout_sec") or 300)
     check_healthcheck = opts.get("check_healthcheck", True)
     # Accumulate across multiple file.analyze calls (CLI sends one file per call)
@@ -60,7 +65,7 @@ def analyze_files(files: list[dict[str, Any]], state: dict[str, Any]) -> list[di
                     "file": path,
                     "line": im.get("line"),
                     "image_ref": im.get("image_ref"),
-                    "source": "from",
+                    "source": "Dockerfile",
                 })
             all_findings.extend(misconfig.check_dockerfile_misconfig(
                 path, parsed, next_id, check_healthcheck
@@ -72,7 +77,7 @@ def analyze_files(files: list[dict[str, Any]], state: dict[str, Any]) -> list[di
                     "file": path,
                     "line": im.get("line"),
                     "image_ref": im.get("image_ref"),
-                    "source": "compose",
+                    "source": "Docker Compose",
                     "service": im.get("service_name"),
                 })
             all_findings.extend(misconfig.check_compose_misconfig(path, parsed, next_id))
@@ -83,7 +88,7 @@ def analyze_files(files: list[dict[str, Any]], state: dict[str, Any]) -> list[di
                     "file": path,
                     "line": im.get("line"),
                     "image_ref": im.get("image_ref"),
-                    "source": "k8s",
+                    "source": "Kubernetes",
                     "container": im.get("container_name"),
                 })
             all_findings.extend(misconfig.check_kubernetes_misconfig(path, parsed, next_id))
@@ -100,7 +105,7 @@ def analyze_files(files: list[dict[str, Any]], state: dict[str, Any]) -> list[di
             )
         except FileNotFoundError:
             if log_fn:
-                log_fn("warn", f"Trivy not found (infra.trivy_path={trivy_path}). Image vulnerability scan skipped. Install Trivy or set infra.trivy_path.")
+                log_fn("warn", f"Trivy not found (panorama.trivy_path={trivy_path}). Image vulnerability scan skipped. Install Trivy or set panorama.trivy_path.")
         except subprocess.TimeoutExpired:
             if log_fn:
                 log_fn("warn", "Trivy --version timed out; image scan skipped.")
@@ -121,11 +126,22 @@ def analyze_files(files: list[dict[str, Any]], state: dict[str, Any]) -> list[di
                 if log_fn:
                     log_fn(
                         "info",
-                        f"  Scanning image: {ref} (may take 1–5 min for large images, timeout={trivy_timeout}s)",
+                        f"  Scanning image: {ref} (timeout={trivy_timeout}s)",
                     )
-                vulns = img_module.scan_image_trivy(ref, trivy_path, trivy_timeout, log_fn=log_fn)
+                vulns, timed_out = img_module.scan_image_trivy(ref, trivy_path, trivy_timeout, log_fn=log_fn)
                 scanned_refs.add(ref)
-                if log_fn:
+                if timed_out:
+                    if log_fn:
+                        log_fn("info", f"    {ref}: scan reached timeout ({trivy_timeout}s), analysis skipped.")
+                    fid = next_id()
+                    all_findings.append(misconfig.finding_for_image_scan_timeout(
+                        fid,
+                        ent.get("file") or "",
+                        ent.get("line") or 0,
+                        ref,
+                        trivy_timeout,
+                    ))
+                elif log_fn:
                     log_fn("info", f"    {ref}: {len(vulns)} vulnerability(ies) found")
                 if vulns:
                     fid = next_id()

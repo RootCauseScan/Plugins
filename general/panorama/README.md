@@ -1,10 +1,10 @@
 # Panorama
 
-Unified view plugin: **code (SAST)**, **dependencies and vulnerabilities (OSV)**, **SBOM and licenses**. A single process runs discover → analyze → report with in-memory state. Supports multiple output formats and filtering options.
+Unified view plugin for the software lifecycle: **dependencies (Syft SBOM + Grype vulns)** and **infra (Dockerfile, Compose, Kubernetes/OpenShift)**. Discover → analyze → report in one run. Supports JSON, CSV, HTML, PDF, Excel; infra reports (images + misconfig + optional Trivy image CVEs) are written to the same `reports/` directory.
 
 ## Installation
 
-**Before using the plugin** run the installation script once (it creates the venv with reportlab and the wrapper):
+**Before using the plugin** run the installation script once:
 
 ```bash
 cd Plugins/general/panorama
@@ -12,15 +12,20 @@ chmod +x install.sh
 ./install.sh
 ```
 
-After that, RootCause will use `plugin_wrapper.sh`, which starts the plugin with the venv Python and all dependencies. Without this step the plugin would fail when generating PDF.
+This will:
+
+- Create a Python venv and install reportlab, openpyxl, PyYAML (for PDF, Excel, and infra).
+- Download **Syft** and **Grype** into `./bin/` (Anchore tools, Go binaries; no Node.js). Syft generates the SBOM, Grype scans it for vulns.
+
+RootCause uses `plugin_wrapper.sh` to start the plugin with the venv. If Syft or Grype are missing, the plugin will log a warning and skip dependency SBOM/vuln analysis (infra analysis is independent).
 
 ## Capabilities
 
 | Phase     | What it does |
 |----------|---------------|
-| **discover** | Walks the workspace and returns manifest/lock files (package.json, go.mod, Cargo.toml, requirements.txt, etc.). |
-| **analyze**  | Parses manifests, builds SBOM, queries OSV and emits findings per vulnerability. |
-| **report**   | Generates reports in JSON, CSV, HTML and/or PDF according to options. |
+| **discover** | Manifest/lock files (package.json, go.mod, Cargo.toml, etc.) **and** infra files (Dockerfile, Containerfile, docker-compose, K8s/OpenShift manifests). |
+| **analyze**  | **Dependencies**: Syft generates SBOM (CycloneDX), Grype scans it for vulns. **Infra**: parses Dockerfile/compose/K8s, misconfig checks, optional Trivy image CVE scan. |
+| **report**   | Deps: JSON, CSV, HTML, PDF, Excel. Infra: `infra-report.json` and `infra-report.html` in the same output dir when infra data exists. |
 
 ## Options (plugin arguments)
 
@@ -38,6 +43,13 @@ Passed via CLI as `--plugin-opt panorama.<key>=<value>` or from config file. All
 | `denied_licenses` | list | [] | License identifiers to treat as policy violations (future use). |
 | `report_title` | string | RootCause Panorama Report | Title for HTML/PDF reports. |
 | `csv_separator` | string | `,` | CSV field separator. |
+| `syft_path` | string | (plugin) | Path to Syft binary. Empty = plugin-local `bin/syft`. |
+| `grype_path` | string | (plugin) | Path to Grype binary. Empty = plugin-local `bin/grype`. |
+| `grype_timeout_sec` | int | 300 | Timeout for Grype SBOM scan (seconds). |
+| `scan_images` | bool | true | Scan container images for CVEs via Trivy (infra). |
+| `trivy_path` | string | `trivy` | Path to Trivy binary. |
+| `trivy_timeout_sec` | int | 300 | Timeout per image (seconds). |
+| `check_healthcheck` | bool | true | Emit finding when Dockerfile has no HEALTHCHECK. |
 
 ### Usage examples
 
@@ -65,44 +77,34 @@ rootcause scan . --plugin ./Plugins/general/panorama \
 - **json**: `sbom.json` (CycloneDX 1.4) and `deps-vulns.json` (vuln list).
 - **csv**: `sbom.csv` and `deps-vulns.csv` (configurable separator).
 - **html**: `deps-report.html` (SBOM and vulnerabilities tables).
-- **pdf**: `deps-report.pdf` (requires `./install.sh`). Order: introduction, **1. Code vulnerabilities** (SAST), **2. Vulnerabilities in dependencies** (OSV, with Description column), **3. Dependencies and licenses** (SBOM). Numbered pages; logo on cover (same as pdf_report). File names kept for compatibility.
+- **pdf**: `deps-report.pdf` (requires `./install.sh`). Order: introduction, **1. Code vulnerabilities** (SAST), **2. Vulnerabilities in dependencies** (Grype, with Description column), **3. Dependencies and licenses** (SBOM). Numbered pages; logo on cover (same as pdf_report). File names kept for compatibility.
 - **xlsx**: `panorama-report.xlsx` (requires openpyxl, installed via `./install.sh`). Four sheets: **FRONTPAGE** (title, date, workspace, summary counts, SAST/SCA severity breakdown), **SAST** (Rule ID, Severity, File, Line, Column, Message, Excerpt, Remediation, Context, Finding ID), **SCA** (Vuln ID, Package, Version, Ecosystem, File, Line, Severity, Description, Fixed In, References, Published, Modified), **LICENSES** (Component Name, Version, Ecosystem, File, Line, License, PURL, Type, Notes).
 
 ## Requirements
 
 - Python 3.10+
-- **Installation required**: run `./install.sh` in the plugin folder. It creates a venv with reportlab and openpyxl; `plugin.toml` uses `plugin_wrapper.sh` to start with that venv so PDF and Excel generation do not fail for missing libraries.
+- **Installation**: run `./install.sh` in the plugin folder. It creates a venv (reportlab, openpyxl, PyYAML) and downloads Syft and Grype to `bin/`. If Syft or Grype are missing, dependency analysis is skipped and a warning is logged.
 
-## Supported manifests
+## Supported ecosystems (via Syft + Grype)
 
-- npm: package.json  
-- Python: requirements.txt  
-- Go: go.mod, go.sum  
-- Rust: Cargo.toml, Cargo.lock  
+Syft detects and generates SBOM for many ecosystems (npm, PyPI, Go, Cargo, Maven, etc.). Grype then scans the SBOM for known vulnerabilities.
 
-Other names are discovered; parsing can be extended in the plugin.
+**npm:** Syft needs a lock file and/or installed dependencies. Run `npm install` in the project before scanning so Syft can read `package-lock.json` and `node_modules`. Without them you may see "0 components".
 
 ## Plugin structure
 
-Single entry file (`plugin.py`) and folders per phase for clear, maintainable code:
-
 ```
 panorama/
-  plugin.py              # Single entry: JSON-RPC loop and dispatch to each phase
+  plugin.py              # JSON-RPC loop and dispatch
   options.py             # Options and parsing (CLI → dict)
-  discover/              # Discover phase
-    manifests.py         # MANIFEST_NAMES, discover_manifests(), is_manifest()
+  discover/               # Discover phase
+    manifests.py         # discover_manifests(), is_manifest()
+    infra_files.py       # discover_infra_files(), is_infra_file()
   analyze/               # Analyze phase
-    parsers.py           # Parse package.json, requirements.txt, go.mod, Cargo.*
-    osv.py               # OSV API: querybatch and description per vuln
-    filters.py           # filter_sbom(), filter_vulns(), severity
-    run.py               # analyze_files(files, state) → findings
-  report/                # Report phase
-    json.py, csv.py, html.py   # One file per format
-    pdf/                 # PDF in multiple modules
-      styles.py          # Styles and helpers (para, truncate, group_findings, etc.)
-      sections.py        # Cover, intro, code vulns, dependency vulns, SBOM
-      builder.py         # create_pdf(), write_pdf()
-  assets/                # Logo for PDF (optional)
+    cyclonedx_grype.py   # run_syft(), run_grype(), sbom_from_cyclonedx(), vulns_from_grype()
+    run.py               # analyze_files() → deps via Syft+Grype
+    infra/               # Dockerfile, compose, K8s (Trivy optional)
+    filters.py           # filter_sbom(), filter_vulns()
+  report/                # Report phase (json, csv, html, pdf, excel; infra_json, infra_html)
   schema.json, plugin.toml, requirements.txt, install.sh
 ```

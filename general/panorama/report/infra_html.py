@@ -1,4 +1,4 @@
-"""HTML report: infra report with images and findings only (rule_id starting with prefix)."""
+"""HTML report: panorama-infra.html with images and findings only (rule_id starting with prefix)."""
 from __future__ import annotations
 
 import html
@@ -13,14 +13,14 @@ def _infra_findings_only(findings: list[dict[str, Any]]) -> list[dict[str, Any]]
     return [f for f in findings if (f.get("rule_id") or "").startswith(RULE_PREFIX)]
 
 
-def write_html(
+def write_infra_html(
     report_dir: str,
     images: list[dict[str, Any]],
     findings_infra: list[dict[str, Any]],
     opts: dict[str, Any],
 ) -> list[tuple[str, int]]:
     findings = _infra_findings_only(findings_infra)
-    title = opts.get("report_title") or "RootCause Infra Report"
+    title = opts.get("report_title") or "RootCause Panorama Report (Infra)"
     buf = io.StringIO()
     buf.write("<!DOCTYPE html><html><head><meta charset='utf-8'><title>")
     buf.write(html.escape(title))
@@ -62,7 +62,7 @@ def write_html(
     else:
         buf.write("<p>No infra findings.</p>")
     buf.write("</body></html>")
-    path = os.path.join(report_dir, "infra-report.html")
+    path = os.path.join(report_dir, "panorama-infra.html")
     content = buf.getvalue()
     with open(path, "w", encoding="utf-8") as fh:
         fh.write(content)

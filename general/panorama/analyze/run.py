@@ -1,79 +1,77 @@
-"""Analyze phase: parse files, update state (SBOM + vulns), return findings."""
+"""Analyze phase: dependencies via Syft (SBOM) + Grype (vulns); infra via analyze.infra."""
 from __future__ import annotations
 
-import base64
-import os
 from typing import Any
 
-from . import osv, parsers
-from .filters import severity_for_vuln
+from . import cyclonedx_grype as cg
+from .infra import analyze_infra_files
 
-
-def _next_id(state: dict[str, Any]) -> str:
-    state["finding_id"] = state.get("finding_id", 0) + 1
-    return f"deps-{state['finding_id']}"
+# Re-export for plugin
+from .cyclonedx_grype import (  # noqa: F401
+    resolve_tool_path,
+    run_syft,
+    run_grype,
+    sbom_from_cyclonedx,
+    vulns_from_grype,
+)
 
 
 def analyze_files(files: list[dict[str, Any]], state: dict[str, Any]) -> list[dict[str, Any]]:
-    """Process manifest files: parse deps, query OSV, append to state['sbom'] and state['vulns'], return findings."""
+    """Process manifest files: run Syft (SBOM) and Grype (vulns) once per workspace; append to state, return findings."""
+    if not files:
+        return []
+    opts = state.get("options") or {}
+    if opts.get("dependencies") is False:
+        return []
+    # Run deps pipeline only once per workspace (engine may call file.analyze multiple times in batches)
+    if state.get("deps_analyzed"):
+        return []
     workspace_root = state.get("workspace_root", ".")
-    all_findings: list[dict[str, Any]] = []
-    for f in files:
-        path = f.get("path", "")
-        if not path:
-            continue
-        content_b64 = f.get("content_b64")
-        if not content_b64:
-            continue
-        try:
-            data = base64.standard_b64decode(content_b64)
-        except Exception:
-            continue
-        base = os.path.basename(path).split("-")[0] if "/virtual/" in path else os.path.basename(path)
-        ecosystem = "npm"
-        deps: list[tuple[str, str, int, str]] = []
-        if base == "package.json":
-            deps = parsers.parse_package_json(data)
-            ecosystem = "npm"
-        elif base == "requirements.txt":
-            deps = parsers.parse_requirements_txt(data)
-            ecosystem = "PyPI"
-        elif base in ("go.mod", "go.sum"):
-            deps = parsers.parse_go_mod(data)
-            ecosystem = "Go"
-        elif base == "Cargo.toml":
-            deps = parsers.parse_cargo_toml(data)
-            ecosystem = "crates.io"
-        elif base == "Cargo.lock":
-            deps = parsers.parse_cargo_lock(data)
-            ecosystem = "crates.io"
+    plugin_dir = state.get("plugin_dir") or "."
+    opts = state.get("options") or {}
+    log_fn = state.get("log")
+
+    syft_path = cg.resolve_tool_path(
+        (opts.get("syft_path") or "").strip(),
+        plugin_dir,
+        "bin/syft",
+    )
+    grype_path = cg.resolve_tool_path(
+        (opts.get("grype_path") or "").strip(),
+        plugin_dir,
+        "bin/grype",
+    )
+    grype_timeout = int(opts.get("grype_timeout_sec") or 300)
+
+    sbom_path = cg.run_syft(workspace_root, syft_path, log_fn, timeout_sec=300)
+    if not sbom_path:
+        if files and log_fn:
+            log_fn("info", "Dependency analysis skipped (Syft unavailable).")
+        state["deps_analyzed"] = True  # avoid retrying on every batch
+        return []
+
+    try:
+        grype_data = cg.run_grype(sbom_path, grype_path, log_fn, timeout_sec=grype_timeout)
+        sbom_list = cg.sbom_from_cyclonedx(sbom_path)
+        if not sbom_list and log_fn:
+            log_fn("warn", "Syft produced 0 components. For npm: run 'npm install' to generate package-lock.json and node_modules. For other ecosystems ensure lock files exist (e.g. yarn.lock, Pipfile.lock).")
+        state["sbom"].extend(sbom_list)
+
+        if grype_data:
+            vulns_list, findings_list = cg.vulns_from_grype(grype_data, state)
+            state["vulns"].extend(vulns_list)
+            if log_fn:
+                log_fn("info", f"Dependencies: {len(sbom_list)} components, {len(vulns_list)} vulnerabilities (Grype).")
+            return findings_list
         else:
-            continue
-        if not deps:
-            continue
-        dep_keys = [(ecosystem, name, version) for name, version, line, excerpt in deps]
-        vuln_id_lists = osv.query_osv_batch(dep_keys)
-        for (name, version, line, excerpt), vuln_ids in zip(deps, vuln_id_lists):
-            state["sbom"].append({
-                "name": name, "version": version, "ecosystem": ecosystem,
-                "file": path, "line": line,
-            })
-            for vid in vuln_ids:
-                state["vulns"].append({
-                    "vuln_id": vid, "name": name, "version": version,
-                    "ecosystem": ecosystem, "file": path, "line": line,
-                })
-                all_findings.append({
-                    "id": _next_id(state),
-                    "rule_id": "deps.vulnerability",
-                    "rule_file": None,
-                    "severity": severity_for_vuln(vid),
-                    "file": path,
-                    "line": line,
-                    "column": 1,
-                    "excerpt": excerpt,
-                    "message": f"Known vulnerability {vid} in {name}@{version}",
-                    "remediation": "Update to a patched version or apply vendor advisory.",
-                    "fix": None,
-                })
-    return all_findings
+            if log_fn:
+                log_fn("info", f"Dependencies: {len(sbom_list)} components (Grype skipped or no vulns).")
+            return []
+    finally:
+        state["deps_analyzed"] = True
+        try:
+            import os
+            if os.path.isfile(sbom_path):
+                os.unlink(sbom_path)
+        except OSError:
+            pass

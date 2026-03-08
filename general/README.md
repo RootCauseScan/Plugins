@@ -1,27 +1,26 @@
 # General Plugins
 
-General-purpose RootCause plugins for infrastructure, dependencies, and reporting.
+General-purpose RootCause plugins for the full software lifecycle: dependencies, infra, and reporting.
 
 | Plugin | Description | Capabilities |
 |--------|-------------|--------------|
-| [infralyzer](./infra/) | Container and orchestration: Dockerfile, Compose, Kubernetes/OpenShift. Misconfig detection and optional image CVE scanning (Trivy). | discover, analyze, report |
-| [panorama](./panorama/) | SBOM and dependency analysis with optional OSV vulnerability lookup; PDF/HTML/JSON/CSV reports. | discover, analyze, report |
+| [panorama](./panorama/) | SBOM and dependency analysis (OSV), **plus infra**: Dockerfile, Compose, Kubernetes/OpenShift (misconfig + optional Trivy image CVEs). PDF/HTML/JSON/CSV reports. | discover, analyze, report |
 
 ## Usage
 
-Point RootCause at a plugin directory when scanning:
+Point RootCause at the plugin directory when scanning:
 
 ```bash
-# Infralyzer: containers and orchestration (misconfig + optional image CVEs)
-rootcause scan . --plugin ./plugins/general/infra
+# Dependencies + infra (Dockerfile, compose, K8s) in one run
+rootcause scan . --plugin ./plugins/general/panorama
 
-# With image CVE scanning (requires Trivy)
-rootcause scan . --plugin ./plugins/general/infra --plugin-opt infralyzer.scan_images=true
+# With Trivy image CVE scanning (requires Trivy in PATH)
+rootcause scan . --plugin ./plugins/general/panorama --plugin-opt panorama.scan_images=true
 ```
 
-Each plugin has its own options and README. See the plugin subdirectory for details.
+See [panorama](./panorama/) for all options and README.
 
 ## Requirements
 
 - Python 3.10+
-- Dependencies per plugin (see each plugin's `requirements.txt`)
+- Dependencies: see panorama's `requirements.txt` and `install.sh`

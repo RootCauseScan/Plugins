@@ -2,3 +2,5 @@
 reportlab>=4.0.0
 # Excel report (FRONTPAGE, SAST, SCA, LICENSES sheets). Required for output_formats=xlsx.
 openpyxl>=3.1.0
+# Infra (Dockerfile, compose, K8s YAML parsing).
+PyYAML>=6.0

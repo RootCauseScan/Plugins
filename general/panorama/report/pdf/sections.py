@@ -15,6 +15,8 @@ from . import styles as S
 
 def add_cover(story, ctx):
     opts, code_findings, vulns, sbom = ctx["opts"], ctx["code_findings"], ctx["vulns"], ctx["sbom"]
+    images = ctx.get("images") or []
+    findings_infra = ctx.get("findings_infra") or []
     sty = ctx["styles"]
     title = ctx["title"]
     report_date = ctx["report_date"]
@@ -29,12 +31,24 @@ def add_cover(story, ctx):
         story.append(logo)
         story.append(Spacer(1, 22))
     story.append(Paragraph(title, sty["title"]))
-    story.append(Paragraph("SBOM · Vulnerabilities · Licenses", sty["brand"]))
+    parts = ["Code"]
+    if opts.get("dependencies") is not False:
+        parts.append("Dependencies")
+    if opts.get("infra") is not False:
+        parts.append("Infra")
+    if opts.get("licenses") is not False:
+        parts.append("Licenses")
+    story.append(Paragraph(" · ".join(parts), sty["brand"]))
     story.append(Spacer(1, 24))
     story.append(Paragraph(f"<b>Generated on:</b> {escape(report_date)}", sty["body"]))
     story.append(Paragraph(f"<b>Code findings (SAST):</b> {len(code_findings)}", sty["body"]))
-    story.append(Paragraph(f"<b>Vulnerabilities in dependencies (OSV):</b> {len(vulns)}", sty["body"]))
-    story.append(Paragraph(f"<b>Components (SBOM):</b> {len(sbom)}", sty["body"]))
+    if opts.get("dependencies") is not False:
+        story.append(Paragraph(f"<b>Vulnerabilities in dependencies (Grype):</b> {len(vulns)}", sty["body"]))
+        story.append(Paragraph(f"<b>Components (SBOM):</b> {len(sbom)}", sty["body"]))
+    if opts.get("infra") is not False and (images or findings_infra):
+        story.append(Paragraph(f"<b>Infra:</b> {len(images)} images, {len(findings_infra)} findings", sty["body"]))
+    if opts.get("licenses") is not False:
+        story.append(Paragraph(f"<b>Licenses:</b> from SBOM", sty["body"]))
     story.append(PageBreak())
 
 
@@ -139,10 +153,10 @@ def add_dependency_vulns(story, ctx):
     vulns = ctx["vulns"]
     severity_counts = ctx["severity_counts"]
     sty = ctx["styles"]
-    story.append(Paragraph("2. Vulnerabilities in Dependencies", sty["section"]))
+    story.append(Paragraph("2. Dependencies", sty["section"]))
     story.append(
         Paragraph(
-            "This section covers known vulnerabilities in third-party packages, as reported by the OSV database. "
+            "This section covers known vulnerabilities in third-party packages, as reported by Grype (dependency scan). "
             "Each row includes the vulnerability identifier, affected package and version, ecosystem, severity, and a short description. "
             "Remediation typically involves upgrading to a patched version or applying the vendor advisory.",
             sty["body"],
@@ -185,7 +199,7 @@ def add_dependency_vulns(story, ctx):
     if vulns:
         vuln_table_data = [[S.para("Vuln ID", sty["table_header"]), S.para("Package", sty["table_header"]), S.para("Version", sty["table_header"]), S.para("Ecosystem", sty["table_header"]), S.para("Severity", sty["table_header"]), S.para("Description", sty["table_header"])]]
         for v in vulns[:300]:
-            sev = S.severity_for_vuln_id(v.get("vuln_id", ""))
+            sev = v.get("severity") or S.severity_for_vuln_id(v.get("vuln_id", ""))
             desc = S.truncate(v.get("description", ""), 100)
             vuln_table_data.append([
                 S.para(v.get("vuln_id", ""), sty["table_val"]),
@@ -211,49 +225,122 @@ def add_dependency_vulns(story, ctx):
     story.append(PageBreak())
 
 
-def add_sbom(story, ctx):
-    sbom = ctx["sbom"]
-    ecosystem_sbom = ctx["ecosystem_sbom"]
+def add_infra(story, ctx):
+    """Section 3: Infra — images, config findings, and image vulnerabilities in separate subsections."""
+    images = ctx.get("images") or []
+    findings_infra = ctx.get("findings_infra") or []
     sty = ctx["styles"]
-    story.append(Paragraph("3. Dependencies and Licenses", sty["section"]))
+    table_style = [
+        ("BACKGROUND", (0, 0), (-1, 0), sty["gold"]),
+        ("TEXTCOLOR", (0, 0), (-1, 0), sty["text"]),
+        ("BACKGROUND", (0, 1), (-1, -1), sty["surface"]),
+        ("GRID", (0, 0), (-1, -1), 1, sty["border"]),
+    ]
+    story.append(Paragraph("3. Infrastructure", sty["section"]))
+    if not images and not findings_infra:
+        story.append(Paragraph("No infra data.", sty["body"]))
+        story.append(PageBreak())
+        return
+    # --- Images table ---
+    if images:
+        story.append(Paragraph("<b>Images</b>", sty["body"]))
+        img_data = [[S.para("File", sty["table_header"]), S.para("Line", sty["table_header"]), S.para("Image", sty["table_header"]), S.para("Source", sty["table_header"])]]
+        for im in images:
+            img_data.append([
+                S.para(S.safe(im.get("file")), sty["table_val"]),
+                S.para(str(im.get("line") or ""), sty["table_val"]),
+                S.para(S.safe(im.get("image_ref") or im.get("image")), sty["table_val"]),
+                S.para(S.safe(im.get("source")), sty["table_val"]),
+            ])
+        t1 = Table(img_data, colWidths=[2.0 * inch, 0.6 * inch, 1.8 * inch, 1.2 * inch], repeatRows=1)
+        t1.setStyle(TableStyle(table_style))
+        story.append(t1)
+        story.append(Spacer(1, 12))
+    # --- Config findings (misconfig, timeout, etc.) — short table with truncated message ---
+    config_findings = [f for f in findings_infra if f.get("rule_id") != "infra.image-vulnerability"]
+    if config_findings:
+        story.append(Paragraph("<b>Configuration findings</b>", sty["body"]))
+        msg_max = 120
+        fin_data = [[S.para("Severity", sty["table_header"]), S.para("Rule ID", sty["table_header"]), S.para("File", sty["table_header"]), S.para("Line", sty["table_header"]), S.para("Message", sty["table_header"])]]
+        for f in config_findings:
+            msg = S.truncate(S.safe(f.get("message")), msg_max)
+            fin_data.append([
+                S.para(S.safe(f.get("severity")), sty["table_val"]),
+                S.para(S.safe(f.get("rule_id")), sty["table_val"]),
+                S.para(S.safe(f.get("file")), sty["table_val"]),
+                S.para(str(f.get("line") or ""), sty["table_val"]),
+                S.para(msg, sty["table_val"]),
+            ])
+        t2 = Table(fin_data, colWidths=[0.8 * inch, 1.4 * inch, 1.6 * inch, 0.5 * inch, 2.0 * inch], repeatRows=1)
+        t2.setStyle(TableStyle(table_style))
+        story.append(t2)
+        story.append(Spacer(1, 14))
+    # --- Image vulnerabilities: one block per image with a compact CVE table ---
+    image_vuln_findings = [f for f in findings_infra if f.get("rule_id") == "infra.image-vulnerability"]
+    max_vuln_rows = 25
+    for f in image_vuln_findings:
+        image_ref = f.get("image_ref") or "unknown"
+        vulns = f.get("vulnerabilities") or []
+        n = len(vulns)
+        sev = S.safe(f.get("severity"))
+        story.append(Paragraph(f"<b>Image: {escape(image_ref)}</b>", sty["body"]))
+        story.append(Paragraph(f"{n} vulnerability(ies), max severity: {sev}. See table below; full list in JSON/Excel.", sty["body"]))
+        story.append(Spacer(1, 6))
+        if vulns:
+            v_data = [[S.para("Vuln ID", sty["table_header"]), S.para("Package", sty["table_header"]), S.para("Severity", sty["table_header"])]]
+            for v in vulns[:max_vuln_rows]:
+                v_data.append([
+                    S.para(S.safe(v.get("vulnerability_id")), sty["table_val"]),
+                    S.para(S.truncate(S.safe(v.get("pkg_name")), 28), sty["table_val"]),
+                    S.para(S.safe(v.get("severity")), sty["table_val"]),
+                ])
+            if n > max_vuln_rows:
+                v_data.append([S.para("…", sty["table_val"]), S.para(f"+ {n - max_vuln_rows} more", sty["table_val"]), S.para("", sty["table_val"])])
+            tv = Table(v_data, colWidths=[1.6 * inch, 1.8 * inch, 0.8 * inch], repeatRows=1)
+            tv.setStyle(TableStyle(table_style))
+            story.append(tv)
+        else:
+            story.append(Paragraph("No vulnerabilities reported.", sty["body"]))
+        story.append(Spacer(1, 12))
+    story.append(PageBreak())
+
+
+def add_licenses(story, ctx):
+    """Section 4: Licenses from SBOM; optional highlight for denied_licenses."""
+    sbom = ctx["sbom"]
+    opts = ctx.get("opts") or {}
+    denied = set((opts.get("denied_licenses") or []))
+    sty = ctx["styles"]
+    story.append(Paragraph("4. Licenses", sty["section"]))
     story.append(
         Paragraph(
-            "This section lists the software components (SBOM) identified in the project. "
-            "It includes the package name, version, and ecosystem. "
-            "Use this inventory for license compliance, dependency audits, and supply-chain visibility.",
+            "License inventory from the software bill of materials for compliance. "
+            "Components with a license in the denied list may require review.",
             sty["body"],
         )
     )
     story.append(Spacer(1, 8))
     if sbom:
-        if ecosystem_sbom:
-            story.append(Paragraph("Components by ecosystem", sty["section"]))
-            eco_names = list(ecosystem_sbom.keys())
-            eco_values = [ecosystem_sbom[k] for k in eco_names]
-            drawing2 = Drawing(400, 220)
-            pie2 = Pie()
-            pie2.data = eco_values
-            pie2.labels = [f"{n} ({v})" for n, v in zip(eco_names, eco_values)]
-            pie2.x, pie2.y, pie2.width, pie2.height = 100, 20, 200, 180
-            pie2.sideLabels = True
-            colors_eco = [HexColor("#3498db"), HexColor("#2ecc71"), HexColor("#9b59b6"), HexColor("#e67e22"), HexColor("#1abc9c"), HexColor("#FFD700")]
-            for i in range(len(eco_values)):
-                pie2.slices[i].fillColor = colors_eco[i % len(colors_eco)]
-            drawing2.add(pie2)
-            story.append(drawing2)
-            story.append(Spacer(1, 12))
-        sbom_table_data = [[S.para("Name", sty["table_header"]), S.para("Version", sty["table_header"]), S.para("Ecosystem", sty["table_header"])]]
-        for c in sbom[:200]:
-            sbom_table_data.append([S.para(c.get("name", ""), sty["table_val"]), S.para(c.get("version", ""), sty["table_val"]), S.para(c.get("ecosystem", ""), sty["table_val"])])
-        if len(sbom) > 200:
-            sbom_table_data.append([S.para("…", sty["table_val"]), S.para(f"+ {len(sbom) - 200} more", sty["table_val"]), S.para("", sty["table_val"])])
-        t4 = Table(sbom_table_data, colWidths=[2.2 * inch, 1.2 * inch, 1.2 * inch], repeatRows=1)
-        t4.setStyle(TableStyle([
+        lic_table_data = [[S.para("Component", sty["table_header"]), S.para("Version", sty["table_header"]), S.para("Ecosystem", sty["table_header"]), S.para("License", sty["table_header"]), S.para("Denied", sty["table_header"])]]
+        for c in sbom[:300]:
+            name = S.safe(c.get("name", ""))
+            version = S.safe(c.get("version", ""))
+            eco = S.safe(c.get("ecosystem", ""))
+            lic = S.safe(c.get("license", "")) or "N/A"
+            is_denied = lic and any(d in lic for d in denied) if denied else False
+            denied_val = "Yes" if is_denied else ""
+            lic_table_data.append([S.para(name, sty["table_val"]), S.para(version, sty["table_val"]), S.para(eco, sty["table_val"]), S.para(lic, sty["table_val"]), S.para(denied_val, sty["table_val"])])
+        if len(sbom) > 300:
+            lic_table_data.append([S.para("…", sty["table_val"]), S.para(f"+ {len(sbom) - 300} more", sty["table_val"]), S.para("", sty["table_val"]), S.para("", sty["table_val"]), S.para("", sty["table_val"])])
+        t = Table(lic_table_data, colWidths=[1.8 * inch, 1.0 * inch, 0.9 * inch, 1.5 * inch, 0.5 * inch], repeatRows=1)
+        t.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (-1, 0), sty["gold"]),
             ("TEXTCOLOR", (0, 0), (-1, 0), sty["text"]),
+            ("FONTSIZE", (0, 0), (-1, -1), 8),
             ("BACKGROUND", (0, 1), (-1, -1), sty["surface"]),
             ("GRID", (0, 0), (-1, -1), 1, sty["border"]),
         ]))
-        story.append(t4)
+        story.append(t)
     else:
-        story.append(Paragraph("No components in the SBOM.", sty["body"]))
+        story.append(Paragraph("No license data (empty SBOM).", sty["body"]))
+    story.append(PageBreak())

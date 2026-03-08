@@ -18,13 +18,15 @@ def create_pdf(
     vulns: list[dict[str, Any]],
     opts: dict[str, Any],
     findings: list[dict[str, Any]] | None = None,
+    images: list[dict[str, Any]] | None = None,
+    findings_infra: list[dict[str, Any]] | None = None,
 ) -> str:
     all_findings = findings or []
-    code_findings = [f for f in all_findings if not (f.get("rule_id") or "").startswith("deps.")]
+    code_findings = [f for f in all_findings if not (f.get("rule_id") or "").startswith("deps.") and not (f.get("rule_id") or "").startswith("infra.")]
     severity_counts = {}
     for v in vulns:
         from .styles import severity_for_vuln_id
-        sev = severity_for_vuln_id(v.get("vuln_id", ""))
+        sev = v.get("severity") or severity_for_vuln_id(v.get("vuln_id", ""))
         severity_counts[sev] = severity_counts.get(sev, 0) + 1
     ecosystem_sbom = {}
     for c in sbom:
@@ -68,13 +70,19 @@ def create_pdf(
         "title": title,
         "workspace_root": opts.get("workspace_root") or "",
         "styles": styles,
+        "images": images or [],
+        "findings_infra": findings_infra or [],
     }
     story = []
     sections.add_cover(story, ctx)
     sections.add_intro(story, ctx)
     sections.add_code_vulns(story, ctx)
-    sections.add_dependency_vulns(story, ctx)
-    sections.add_sbom(story, ctx)
+    if opts.get("dependencies") is not False:
+        sections.add_dependency_vulns(story, ctx)
+    if opts.get("infra") is not False:
+        sections.add_infra(story, ctx)
+    if opts.get("licenses") is not False:
+        sections.add_licenses(story, ctx)
     doc.build(story, onFirstPage=draw_page_chrome, onLaterPages=draw_page_chrome)
     return output_path
 
@@ -85,7 +93,9 @@ def write_pdf(
     vulns: list[dict],
     opts: dict[str, Any],
     findings: list[dict] | None = None,
+    images: list[dict] | None = None,
+    findings_infra: list[dict] | None = None,
 ) -> list[tuple[str, int]]:
-    path = os.path.join(report_dir, "deps-report.pdf")
-    create_pdf(path, sbom, vulns, opts, findings=findings or [])
+    path = os.path.join(report_dir, "panorama-report.pdf")
+    create_pdf(path, sbom, vulns, opts, findings=findings or [], images=images or [], findings_infra=findings_infra or [])
     return [(path, os.path.getsize(path))]

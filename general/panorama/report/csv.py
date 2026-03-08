@@ -1,4 +1,4 @@
-"""CSV report: sbom.csv and deps-vulns.csv. Column order: IDs | file/dependency | location | severity | description | extra."""
+"""CSV report: panorama-sbom.csv and panorama-vulns.csv. Column order: IDs | file/dependency | location | severity | description | extra."""
 from __future__ import annotations
 
 import csv
@@ -26,7 +26,7 @@ def write_csv(
     out: list[tuple[str, int]] = []
     sep = opts.get("csv_separator") or ","
     if opts.get("include_sbom") and sbom:
-        path = os.path.join(report_dir, "sbom.csv")
+        path = os.path.join(report_dir, "panorama-sbom.csv")
         headers = ["purl", "name", "version", "ecosystem", "file", "line", "type", "license", "notes"]
         with open(path, "w", encoding="utf-8", newline="") as fh:
             w = csv.writer(fh, delimiter=sep)
@@ -48,7 +48,7 @@ def write_csv(
                 ])
         out.append((path, os.path.getsize(path)))
     if opts.get("include_vulns") and vulns:
-        path = os.path.join(report_dir, "deps-vulns.csv")
+        path = os.path.join(report_dir, "panorama-vulns.csv")
         headers = ["vuln_id", "name", "version", "ecosystem", "file", "line", "severity", "description", "fixed_in", "published", "modified", "references"]
         with open(path, "w", encoding="utf-8", newline="") as fh:
             w = csv.writer(fh, delimiter=sep)
@@ -62,7 +62,7 @@ def write_csv(
                     v.get("ecosystem"),
                     v.get("file"),
                     v.get("line"),
-                    _severity_for_vuln(vid),
+                    v.get("severity") or _severity_for_vuln(vid),
                     v.get("description") or "",
                     v.get("fixed_in") or "",
                     v.get("published") or "",

@@ -256,3 +256,24 @@ def finding_for_image_cves_aggregated(
         "Update base image or rebuild with patched packages.",
         extra={"vulnerabilities": vulns, "image_ref": image_ref},
     )
+
+
+def finding_for_image_scan_timeout(
+    finding_id: str,
+    file_path: str,
+    line: int,
+    image_ref: str,
+    timeout_sec: int,
+) -> dict[str, Any]:
+    """Finding when Trivy image scan hit the time limit."""
+    return _finding(
+        finding_id,
+        "infra.image-scan-timeout",
+        "MEDIUM",
+        file_path,
+        max(1, line),
+        f"Image {image_ref}: vulnerability scan reached timeout ({timeout_sec}s). Analysis skipped. Consider increasing panorama.trivy_timeout_sec or running Trivy manually.",
+        image_ref,
+        "Increase trivy_timeout_sec or run Trivy on this image separately.",
+        extra={"image_ref": image_ref},
+    )
