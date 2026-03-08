@@ -66,7 +66,7 @@ The plugin generates:
 
 Options (e.g. in rootcause config under `[plugins.pdf-report]` or via CLI):
 
-- **output**: Output filename (default: `report.pdf`)
+- **output**: Output path for the PDF (default: `reports/report.pdf`; `reports/` is created if missing)
 - **template**: Path to your Markdown template (default: plugin `templates/report.md`)
 - **template_css**: Path to CSS file (default: plugin `templates/report.css`)
 - **allow_commands**: If `true`, allows `{cmd:shell command}` in the template (e.g. `{cmd:python -c "import datetime; print(datetime.date.today())"}`). Use with care.

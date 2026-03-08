@@ -3,8 +3,8 @@
   "properties": {
     "output": {
       "type": "string",
-      "default": "report.pdf",
-      "description": "Output filename for the PDF report"
+      "default": "reports/report.pdf",
+      "description": "Output path for the PDF report (default: reports/ under workspace; directory is created if missing)"
     },
     "template": {
       "type": "string",

@@ -69,11 +69,14 @@ def handle_report(params):
 
         log("info", f"Generating PDF report for {len(findings)} finding occurrence(s)")
 
-        output_filename = opts.get("output", "report.pdf")
-        base_dir = opts.get("cwd") or os.getcwd()
+        output_filename = opts.get("output", "reports/report.pdf")
+        base_dir = opts.get("workspace_root") or opts.get("cwd") or os.getcwd()
         if not os.path.exists(base_dir):
             base_dir = os.getcwd()
         output_path = os.path.join(base_dir, output_filename)
+        parent_dir = os.path.dirname(output_path)
+        if parent_dir:
+            os.makedirs(parent_dir, exist_ok=True)
         log("info", f"Output path: {output_path}")
 
         plugin_dir = _plugin_dir
@@ -147,7 +150,7 @@ signal.signal(signal.SIGPIPE, signal.SIG_DFL)
 signal.signal(signal.SIGINT, signal_handler)
 signal.signal(signal.SIGTERM, signal_handler)
 
-opts = {"workspace_root": "", "output": "report.pdf"}
+opts = {"workspace_root": "", "output": "reports/report.pdf"}
 
 try:
     for line in sys.stdin:
