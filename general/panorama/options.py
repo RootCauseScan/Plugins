@@ -21,6 +21,7 @@ def default_options() -> dict[str, Any]:
         "report_title": "RootCause Panorama Report",
         "pdf_template": "",
         "pdf_template_css": "",
+        "xlsx_template": "",
         "csv_separator": ",",
         # Deps: Syft (SBOM) + Grype (vulns); empty = use plugin-local bin/
         "syft_path": "",
@@ -29,7 +30,7 @@ def default_options() -> dict[str, Any]:
         # Infra (Dockerfile, compose, K8s); empty = plugin-local bin/trivy
         "scan_images": True,
         "trivy_path": "",
-        "trivy_timeout_sec": 10,
+        "trivy_timeout_sec": 300,
         "check_healthcheck": True,
     }
 

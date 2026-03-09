@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import tempfile
 from typing import Any, Callable
@@ -264,10 +265,33 @@ def vulns_from_grype(
 
 
 def resolve_tool_path(opt_path: str, plugin_dir: str, default_relative: str) -> str:
-    """Resolve option path: if empty, use plugin_dir + default_relative; else use as-is (abs or PATH)."""
-    if opt_path and opt_path.strip():
-        p = opt_path.strip()
+    """Resolve tool path, preferring user PATH over plugin-local ./bin.
+
+    Rules:
+      - If opt_path is set:
+          * Absolute path -> use as-is.
+          * If contains a path separator -> treat as relative to plugin_dir.
+          * Otherwise: first try PATH (shutil.which), else plugin_dir/opt_path.
+      - If opt_path is empty:
+          * Try to find the executable name (basename of default_relative) on PATH.
+          * Fallback to plugin_dir/default_relative.
+    """
+    p = (opt_path or "").strip()
+    if p:
         if os.path.isabs(p):
             return p
+        # If user passed something that looks like a path, resolve against plugin_dir
+        if os.sep in p or (os.path.altsep and os.path.altsep in p):
+            return os.path.abspath(os.path.join(plugin_dir, p))
+        # Bare command name: prefer PATH
+        found = shutil.which(p)
+        if found:
+            return found
         return os.path.abspath(os.path.join(plugin_dir, p))
+
+    # No explicit path: prefer PATH for the tool name, then plugin ./bin
+    tool_name = os.path.basename(default_relative)
+    found = shutil.which(tool_name)
+    if found:
+        return found
     return os.path.abspath(os.path.join(plugin_dir, default_relative))

@@ -72,6 +72,10 @@
       "type": "string",
       "description": "Path to CSS for PDF template (default: plugin templates/panorama-report.css)"
     },
+    "xlsx_template": {
+      "type": "string",
+      "description": "Path to Markdown template for XLSX (default: plugin templates/panorama-xlsx-template.md if present)"
+    },
     "csv_separator": {
       "type": "string",
       "default": ",",

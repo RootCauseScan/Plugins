@@ -66,11 +66,22 @@ def _process_k8s_doc(doc: dict, file_path: str, content: str, result: dict[str, 
                 if sec.get("privileged") is True:
                     result["privileged"].append({"line": _find_line(content, "privileged"), "container_name": name})
     if kind == "Pod":
-        pass
-    elif kind == "Deployment" or kind == "DaemonSet" or kind == "StatefulSet":
+        return
+    # Workload types with template.spec (K8s + OpenShift DeploymentConfig)
+    if kind in {"Deployment", "DaemonSet", "StatefulSet", "ReplicaSet", "Job", "DeploymentConfig"}:
         template = spec.get("template") or {}
         pod_spec = template.get("spec") or {}
-        _process_k8s_doc({"kind": "Pod", "spec": pod_spec}, file_path, content, result)
+        if isinstance(pod_spec, dict):
+            _process_k8s_doc({"kind": "Pod", "spec": pod_spec}, file_path, content, result)
+    # CronJob: spec.jobTemplate.spec.template.spec
+    if kind == "CronJob":
+        job_tmpl = spec.get("jobTemplate") or {}
+        job_spec = job_tmpl.get("spec") or {}
+        if isinstance(job_spec, dict):
+            template = job_spec.get("template") or {}
+            pod_spec = template.get("spec") or {}
+            if isinstance(pod_spec, dict):
+                _process_k8s_doc({"kind": "Pod", "spec": pod_spec}, file_path, content, result)
 
 
 def _find_line(content: str, needle: str) -> int:

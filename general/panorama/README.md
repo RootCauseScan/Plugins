@@ -42,6 +42,9 @@ Passed via CLI as `--plugin-opt panorama.<key>=<value>` or from config file. All
 | `exclude_ecosystems` | list | [] | Exclude these ecosystems. |
 | `denied_licenses` | list | [] | License identifiers to treat as policy violations (future use). |
 | `report_title` | string | RootCause Panorama Report | Title for HTML/PDF reports. |
+| `pdf_template` | string | (plugin) | Path to Markdown template for PDF (default: plugin `templates/panorama-report.md`). |
+| `pdf_template_css` | string | (plugin) | Path to CSS for PDF template (default: plugin `templates/panorama-report.css`). |
+| `xlsx_template` | string | (plugin) | Path to Markdown template for XLSX (default: plugin `templates/panorama-xlsx-template.md` if present). |
 | `csv_separator` | string | `,` | CSV field separator. |
 | `syft_path` | string | (plugin) | Path to Syft binary. Empty = plugin-local `bin/syft`. |
 | `grype_path` | string | (plugin) | Path to Grype binary. Empty = plugin-local `bin/grype`. |
@@ -78,7 +81,82 @@ rootcause scan . --plugin ./Plugins/general/panorama \
 - **csv**: `sbom.csv` and `deps-vulns.csv` (configurable separator).
 - **html**: `deps-report.html` (SBOM and vulnerabilities tables).
 - **pdf**: `deps-report.pdf` (requires `./install.sh`). Order: introduction, **1. Code vulnerabilities** (SAST), **2. Vulnerabilities in dependencies** (Grype, with Description column), **3. Dependencies and licenses** (SBOM). Numbered pages; logo on cover (same as pdf_report). File names kept for compatibility.
-- **xlsx**: `panorama-report.xlsx` (requires openpyxl, installed via `./install.sh`). Four sheets: **FRONTPAGE** (title, date, workspace, summary counts, SAST/SCA severity breakdown), **SAST** (Rule ID, Severity, File, Line, Column, Message, Excerpt, Remediation, Context, Finding ID), **SCA** (Vuln ID, Package, Version, Ecosystem, File, Line, Severity, Description, Fixed In, References, Published, Modified), **LICENSES** (Component Name, Version, Ecosystem, File, Line, License, PURL, Type, Notes).
+- **xlsx**: `panorama-report.xlsx` (requires openpyxl, installed via `./install.sh`). Sheets: **FRONTPAGE** (title, date, workspace, summary counts, SAST/SCA severity breakdown), **SAST** (Finding ID, Rule ID, Severity, File, Line, Column, Message, Excerpt, Remediation, Context), **SCA** (Vuln ID, Package, Version, Ecosystem, File, Line, Severity, Description, Fixed In, References, Published, Modified), optional **INFRA** when infra data exists, and **LICENSES** (PURL, Component Name, Version, Ecosystem, Line, Type, License).
+
+### XLSX templates
+
+Panorama puede generar las hojas de Excel a partir de una plantilla Markdown sencilla:
+
+- **Fichero de plantilla**: por defecto `templates/panorama-xlsx-template.md` (se usa automáticamente si existe), o un fichero personalizado configurando `panorama.xlsx_template`.
+- **Fuente de datos**: todas las rutas (`source`, `Value path`) se evalúan contra el informe canónico (`sast.findings`, `dependency_vulnerabilities.vulnerabilities`, `infrastructure.images`, `infrastructure.findings`, `sbom.components`, etc.).
+- Con plantilla, **todas las hojas/tablas** (SAST, SCA, INFRA, LICENSES, ...) se generan desde la plantilla. Solo `FRONTPAGE` sigue siendo programática.
+
+Hoja con una sola tabla (formato clásico):
+
+```md
+## Sheet SAST (source: sast.findings)
+
+| Header      | Value path   | Width | Wrap |
+|------------ |------------- |-------|------|
+| Finding ID  | id           | 12    | true |
+| Rule ID     | rule_id      | 22    | true |
+| File        | file         | 38    | true |
+| Line        | line         | 8     | true |
+| Column      | column       | 8     | true |
+| Severity    | severity     | 10    | true |
+| Message     | message      | 42    | true |
+| Excerpt     | excerpt      | 32    | true |
+| Remediation | remediation  | 32    | true |
+| Context     | context      | 28    | true |
+```
+
+- **Header**: texto de cabecera de la columna.
+- **Value path**: ruta al campo dentro de cada elemento de la lista (`id`, `rule_id`, `file`, `line`, `severity`, etc.).
+- **Width**: ancho aproximado de la columna (número, en unidades de Excel).
+- **Wrap**: `true`/`false` para indicar si se activa el ajuste de texto (por defecto `true` si se omite).
+
+#### Varias tablas en la misma hoja (INFRA)
+
+Para INFRA puedes definir una única hoja con varias tablas apiladas verticalmente, usando bloques con `Source:` (y opcionalmente `Expand:`) justo encima de cada tabla:
+
+```md
+## Sheet INFRA
+
+Source: infrastructure.images
+| Header | Value path | Width | Wrap |
+|--------|----------- |-------|------|
+| File   | file       | 32    | true |
+| Line   | line       | 10    | true |
+| Image  | image_ref  | 24    | true |
+| Source | source     | 38    | true |
+
+Source: infrastructure.findings
+| Header   | Value path | Width | Wrap |
+|----------|----------- |-------|------|
+| Rule ID  | rule_id    | 24    | true |
+| Severity | severity   | 10    | true |
+| File     | file       | 32    | true |
+| Line     | line       | 10    | true |
+| Message  | message    | 48    | true |
+
+Source: infrastructure.findings
+Expand: vulnerabilities
+| Header            | Value path           | Width | Wrap |
+|-------------------|----------------------|-------|------|
+| Image             | image_ref            | 32    | true |
+| File              | file                 | 32    | true |
+| Line              | line                 | 10    | true |
+| Vuln ID           | vulnerability_id     | 22    | true |
+| Package           | pkg_name             | 24    | true |
+| Severity          | severity             | 10    | true |
+| Title/Description | title_or_description | 60    | true |
+```
+
+- Cada bloque `Source: ...` + tabla genera una tabla en la misma hoja, una debajo de otra.
+- `Expand: vulnerabilities` indica que, para `infrastructure.findings`, se debe aplanar la lista `vulnerabilities` de cada finding, generando una fila por CVE con campos combinados de la imagen y de la vulnerabilidad.
+- La columna opcional `Style` permite aplicar estilos básicos; por ejemplo, `style: severity` colorea la celda según el nivel de severidad (`CRITICAL`, `HIGH`, `MEDIUM`, `LOW`, `INFO`).
+
+La plantilla por defecto `templates/panorama-xlsx-template.md` reproduce las columnas actuales de `SAST`, `SCA`, `LICENSES` y añade una hoja `INFRA` con tres tablas (imágenes, misconfiguraciones, CVEs) como punto de partida editable.
 
 ## Requirements
 
